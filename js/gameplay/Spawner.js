@@ -1,210 +1,162 @@
 /**
- * Spawner — generación dinámica de objetos en posiciones VÁLIDAS.
+ * Spawner — generación dinámica en posiciones VÁLIDAS.
  *
- * Una posición es válida si:
- *   1. está dentro del área jugable y lejos de la grieta,
- *   2. un raycast vertical toca terreno/estructura fija (no una caja),
- *   3. la superficie es transitable (normal.y alta) y a una altura razonable,
- *   4. una esfera de holgura no se superpone con ningún collider,
- *   5. respeta distancias mínimas al jugador, a otros objetos y a las torres.
+ * Cada candidato se valida con:
+ *  1. la función de altura del nivel (sin abismos, pendiente caminable),
+ *  2. un raycast vertical de Rapier (para apoyarse sobre estructuras),
+ *  3. una consulta de superposición (el hueco debe estar libre de muros,
+ *     objetos, enemigos y otros pickups),
+ *  4. distancia mínima al jugador.
  *
- * Genera: núcleos de plata iniciales, baterías periódicas, núcleos dorados de
- * bonificación y derrumbes de rocas (con aviso previo en el suelo).
+ * También gestiona el botín que sueltan enemigos y cajas.
  */
 import * as THREE from 'three';
-import { SilverCore, GoldCore, BatteryPickup } from '../entities/Pickups.js';
-import { Boulder } from '../entities/Props.js';
-import { COLLISION, G, groups, ROCKFALL_INTERVALS } from '../config.js';
-import { inCrevasse, heightAt } from '../world/Terrain.js';
-import { INTERFERENCE_RADIUS } from '../entities/Tower.js';
+import { COLLISION, G, groups, WEAPONS } from '../config.js';
+import { heightAt, isVoid, normalAt } from '../world/TerrainField.js';
+import { HealthPack, AmmoPack, GrenadePack, EnergyCell } from '../entities/Pickups.js';
+import { SupplyCrate } from '../entities/Props.js';
 
-const DOWN = { x: 0, y: -1, z: 0 };
 const GROUND_QUERY = groups(0xffff, G.WORLD | G.PROP);
+const _n = new THREE.Vector3();
+
+const LOOT = {
+  espectro: { ammo: 0.32, health: 0.14, grenade: 0.08 },
+  acechador: { ammo: 0.14, health: 0.1, grenade: 0.04 },
+  centinela: { ammo: 0.25, health: 0.08, grenade: 0.12 },
+  bastion: { ammo: 0.9, health: 0.7, grenade: 0.5 },
+};
 
 export class Spawner {
-  constructor(game, level, difficulty) {
+  constructor(game) {
     this.game = game;
-    this.level = level;
-    this.difficulty = difficulty;
-    this.batteryTimer = 25;
-    this.goldTimer = 40;
-    this.rockTimer = 20;
-    this.pendingRocks = [];
-    this.rng = Math.random;
     this.stats = { attempts: 0, rejected: 0 };
   }
 
-  get items() {
-    return [...this.game.entities].filter((e) => e.alive && (e.type === 'core' || e.type === 'battery' || e.type === 'goldcore'));
-  }
-
   /**
-   * Comprueba un punto (x, z). Devuelve la posición en el suelo o null.
+   * Busca un punto libre en un disco.
+   * @returns {THREE.Vector3|null} punto sobre el suelo
    */
-  validate(x, z, opts = {}) {
-    const {
-      minPlayerDist = 8,
-      minSpacing = 6,
-      clearance = 0.75,
-      minY = -1.5,
-      maxY = 6.5,
-      avoidTowers = true,
-      avoid = [],
-    } = opts;
-    this.stats.attempts++;
-    const reject = () => {
-      this.stats.rejected++;
-      return null;
-    };
-    if (Math.abs(x) > 48 || Math.abs(z) > 48) return reject();
-    if (inCrevasse(x, z, 2.5)) return reject();
-    const physics = this.game.physics;
-    const hit = physics.raycast({ x, y: 60, z }, DOWN, 100, { groups: GROUND_QUERY });
-    if (!hit) return reject();
-    if (hit.entity && hit.entity.type !== 'world') return reject(); // encima de una caja u objeto dinámico
-    if (hit.normal.y < 0.82) return reject();
-    const y = hit.point.y;
-    if (y < minY || y > maxY) return reject();
-    const probe = { x, y: y + 1.0, z };
-    if (physics.overlapSphere(probe, clearance, { groups: COLLISION.spawnQuery, includeSensors: true }).length > 0) return reject();
-    const p = new THREE.Vector3(x, y, z);
+  findSpot(center, radius, { minPlayerDist = 0, maxPlayerDist = Infinity, clearance = 0.7, tries = 40, slope = 0.78, minRadius = 0, avoid = [], minHeight = -Infinity } = {}) {
+    const { physics } = this.game;
     const player = this.game.player;
-    if (player && p.distanceTo(player.feetPosition) < minPlayerDist) return reject();
-    for (const it of this.items) if (it.object3d.position.distanceTo(probe) < minSpacing) return reject();
-    for (const a of avoid) if (a.distanceTo(p) < minSpacing) return reject();
-    if (avoidTowers) {
-      for (const t of this.level.towers) {
-        if (Math.hypot(t.center.x - x, t.center.z - z) < INTERFERENCE_RADIUS + 1.5) return reject();
-      }
-    }
-    const ex = this.level.extraction;
-    if (ex && Math.hypot(ex.center.x - x, ex.center.z - z) < 6) return reject();
-    return p;
-  }
-
-  findInZone(zone, opts = {}, tries = 80) {
     for (let i = 0; i < tries; i++) {
-      const x = zone.minX + this.rng() * (zone.maxX - zone.minX);
-      const z = zone.minZ + this.rng() * (zone.maxZ - zone.minZ);
-      const p = this.validate(x, z, opts);
-      if (p) return p;
-    }
-    return null;
-  }
-
-  findAnywhere(opts = {}) {
-    const zones = this.level.spawnZones;
-    for (let i = 0; i < 6; i++) {
-      const zone = zones[Math.floor(this.rng() * zones.length)];
-      const p = this.findInZone(zone, opts, 40);
-      if (p) return p;
-    }
-    return null;
-  }
-
-  /** Núcleos iniciales repartidos por todas las zonas del mapa. */
-  spawnCores(count) {
-    const order = this.level.coreZoneOrder;
-    const placed = [];
-    for (let i = 0; i < count; i++) {
-      const zone = this.level.zoneByName(order[i % order.length]);
-      let p = this.findInZone(zone, { minSpacing: 7, minPlayerDist: 10, avoid: placed });
-      if (!p) p = this.findAnywhere({ minSpacing: 5, minPlayerDist: 8, avoid: placed });
-      if (!p) {
-        // respaldo: punto seguro predefinido (nunca debería ocurrir)
-        const f = this.level.fallbackSpots[i % this.level.fallbackSpots.length];
-        p = new THREE.Vector3(f.x, heightAt(f.x, f.z), f.z);
+      this.stats.attempts++;
+      const a = Math.random() * Math.PI * 2;
+      const r = minRadius + Math.sqrt(Math.random()) * (radius - minRadius);
+      const x = center.x + Math.cos(a) * r;
+      const z = center.z + Math.sin(a) * r;
+      if (isVoid(x, z)) {
+        this.stats.rejected++;
+        continue;
       }
-      placed.push(p);
-      this.game.addEntity(new SilverCore(this.game, p));
+      const h = heightAt(x, z);
+      if (h < minHeight) {
+        this.stats.rejected++;
+        continue;
+      }
+      normalAt(x, z, _n);
+      // raycast vertical: suelo real (terreno o estructura)
+      const hit = physics.raycast({ x, y: h + 25, z }, { x: 0, y: -1, z: 0 }, 40, { groups: GROUND_QUERY });
+      const y = hit ? hit.point.y : h;
+      const flat = hit ? hit.normal.y : _n.y;
+      if (flat < slope || y < h - 0.5) {
+        this.stats.rejected++;
+        continue;
+      }
+      const p = new THREE.Vector3(x, y, z);
+      if (player && minPlayerDist > 0) {
+        const d = player.currPos.distanceTo(p);
+        if (d < minPlayerDist || d > maxPlayerDist) {
+          this.stats.rejected++;
+          continue;
+        }
+      }
+      if (avoid.some((q) => q.distanceTo(p) < clearance * 2.5)) {
+        this.stats.rejected++;
+        continue;
+      }
+      const test = new THREE.Vector3(x, y + clearance + 0.15, z);
+      if (physics.overlapSphere(test, clearance, { groups: COLLISION.spawnQuery, includeSensors: true }).length) {
+        this.stats.rejected++;
+        continue;
+      }
+      return p;
     }
-    return placed;
+    return null;
   }
 
-  spawnBatteries(count) {
-    for (let i = 0; i < count; i++) this.spawnBattery();
-  }
-
-  spawnBattery() {
-    const p = this.findAnywhere({ minSpacing: 8, minPlayerDist: 12 });
-    if (p) {
-      this.game.addEntity(new BatteryPickup(this.game, p));
-      return true;
+  /** Coloca una celda de energía en cada zona indicada. */
+  spawnCells(zones) {
+    const cells = [];
+    const avoid = [];
+    for (const z of zones) {
+      let p = this.findSpot(z.center, z.radius, { clearance: 0.9, avoid, minPlayerDist: 12, minHeight: -0.6 });
+      if (!p) p = new THREE.Vector3(z.center.x, heightAt(z.center.x, z.center.z), z.center.z);
+      avoid.push(p);
+      const cell = new EnergyCell(this.game, p);
+      cell.zone = z.name;
+      this.game.addEntity(cell);
+      cells.push(cell);
     }
-    return false;
+    this.game.physics.refreshQueries();
+    return cells;
   }
 
-  /** Batería que cae de una caja de suministros (posición ya conocida). */
-  spawnBatteryAt(pos) {
-    const y = heightAt(pos.x, pos.z);
-    const p = new THREE.Vector3(pos.x, Math.max(y, pos.y - 0.45), pos.z);
-    this.game.addEntity(new BatteryPickup(this.game, p, 30));
-  }
-
-  spawnGoldCore() {
-    const p = this.findAnywhere({ minSpacing: 8, minPlayerDist: 14, maxY: 6.5 });
-    if (!p) return false;
-    this.game.addEntity(new GoldCore(this.game, p, 28));
-    this.game.bus.emit('hud:toast', { text: '¡Apareció un núcleo dorado! (28 s)', type: 'gold', icon: 'gem' });
-    this.game.audio.play('goldSpawn');
-    return true;
-  }
-
-  /** Derrumbe: aviso en el suelo cerca del jugador y luego cae una roca. */
-  scheduleRockfall() {
-    const player = this.game.player;
-    if (!player || player.dead) return;
-    const base = player.feetPosition.clone();
-    for (let i = 0; i < 20; i++) {
-      const a = this.rng() * Math.PI * 2;
-      const r = 3 + this.rng() * 9;
-      const x = base.x + Math.cos(a) * r;
-      const z = base.z + Math.sin(a) * r;
-      const p = this.validate(x, z, { minPlayerDist: 2.5, minSpacing: 0, clearance: 0.6, maxY: 7, avoidTowers: false });
+  /** Cajas de suministros rompibles repartidas en posiciones válidas. */
+  spawnSupplies(count, center, radius, opts = {}) {
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const p = this.findSpot(center, radius, { clearance: 0.8, minPlayerDist: opts.minPlayerDist ?? 4, ...opts });
       if (!p) continue;
-      const radius = 0.55 + this.rng() * 0.5;
-      this.game.fx.warning(p, radius + 0.6, 1.7);
-      this.game.audio.play('rumble', p);
-      this.pendingRocks.push({ pos: p, radius, t: 1.7 });
+      p.y += 0.5;
+      const c = new SupplyCrate(this.game, p, { rotY: Math.random() * Math.PI, sleeping: true });
+      this.game.addEntity(c);
+      out.push(c);
+      this.game.physics.refreshQueries();
+    }
+    return out;
+  }
+
+  spawnPickup(kind, pos, lifetime = Infinity) {
+    const C = kind === 'health' ? HealthPack : kind === 'grenade' ? GrenadePack : AmmoPack;
+    const p = pos.clone();
+    const ground = heightAt(p.x, p.z);
+    if (!isVoid(p.x, p.z)) p.y = Math.max(p.y - 0.6, ground);
+    return this.game.addEntity(new C(this.game, p, lifetime));
+  }
+
+  /** ¿El jugador anda corto de munición? (para soltar más cajas de balas) */
+  #lowAmmo() {
+    const w = this.game.weapons;
+    if (!w) return false;
+    let total = 0;
+    let max = 0;
+    for (const id of w.owned) {
+      total += w.ammo[id].mag + w.ammo[id].reserve;
+      max += WEAPONS[id].maxReserve + WEAPONS[id].mag;
+    }
+    const a = w.ammo[w.current];
+    return a.reserve < 12 || total < max * 0.25;
+  }
+
+  dropLoot(pos, type) {
+    const { game } = this;
+    const k = game.difficulty?.pickups ?? 1;
+    const at = (i) => pos.clone().add(new THREE.Vector3(Math.cos(i * 2.1) * 0.7, 0.2, Math.sin(i * 2.1) * 0.7));
+    if (type === 'crate') {
+      const r = Math.random();
+      const player = game.player;
+      const hurt = player && player.health < player.maxHealth * 0.6;
+      const kind = this.#lowAmmo() && r < 0.6 ? 'ammo' : hurt && r < 0.7 ? 'health' : r < 0.45 ? 'ammo' : r < 0.8 ? 'health' : 'grenade';
+      this.spawnPickup(kind, at(0));
       return;
     }
-  }
-
-  update(dt) {
-    const game = this.game;
-    const items = this.items;
-    // baterías periódicas
-    this.batteryTimer -= dt;
-    if (this.batteryTimer <= 0) {
-      this.batteryTimer = 28;
-      if (items.filter((i) => i.type === 'battery').length < 3) this.spawnBattery();
-    }
-    // núcleo dorado de bonificación
-    this.goldTimer -= dt;
-    if (this.goldTimer <= 0) {
-      this.goldTimer = 50;
-      if (!items.some((i) => i.type === 'goldcore')) this.spawnGoldCore();
-    }
-    // derrumbes (más frecuentes al avanzar la tormenta)
-    const base = ROCKFALL_INTERVALS[game.settings.get('rockfall')] ?? ROCKFALL_INTERVALS.normal;
-    if (Number.isFinite(base)) {
-      const storm = game.mission?.storm ?? 0;
-      this.rockTimer -= dt * this.difficulty.rockfallMult * (1 + storm * 1.2);
-      if (this.rockTimer <= 0) {
-        this.rockTimer = base * (0.75 + this.rng() * 0.5);
-        this.scheduleRockfall();
-      }
-    }
-    for (const r of this.pendingRocks) {
-      r.t -= dt;
-      if (r.t <= 0) {
-        const start = r.pos.clone();
-        start.y += 20;
-        const b = new Boulder(game, start, { radius: r.radius, rockfall: true });
-        b.body.setLinvel({ x: 0, y: -14, z: 0 }, true);
-        game.addEntity(b);
-      }
-    }
-    this.pendingRocks = this.pendingRocks.filter((r) => r.t > 0);
+    const t = LOOT[type];
+    if (!t) return;
+    let i = 0;
+    const low = this.#lowAmmo();
+    if (Math.random() < Math.min(1, (t.ammo + (low ? 0.35 : 0)) * k)) this.spawnPickup('ammo', at(i++), 30);
+    if (Math.random() < Math.min(1, t.health * k)) this.spawnPickup('health', at(i++), 30);
+    if (Math.random() < Math.min(1, t.grenade * k)) this.spawnPickup('grenade', at(i++), 30);
   }
 }
