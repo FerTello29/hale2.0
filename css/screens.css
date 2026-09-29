@@ -1,0 +1,246 @@
+/* ==========================================================================
+   Pantallas: carga, menú, pausa, victoria y derrota
+   ========================================================================== */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  touch-action: pan-y;
+  user-select: text;
+}
+
+.screen__center {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+/* ------------------------------------------------------------------ carga */
+.screen--loading {
+  background: radial-gradient(ellipse at 50% 35%, #3a2416 0%, #1a110c 55%, #0c0806 100%);
+  z-index: 30;
+}
+
+.loading-logo {
+  filter: drop-shadow(0 0 18px rgba(127, 232, 255, 0.35));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.loading-progress {
+  width: min(360px, 80vw);
+  height: 8px;
+  margin: 1rem auto 0.6rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.loading-progress .progress-bar {
+  background: linear-gradient(90deg, var(--cyan), var(--silver), var(--accent));
+  transition: width 0.2s ease;
+}
+
+.loading-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.loading-error {
+  color: var(--danger);
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+/* ------------------------------------------------------------------ menú */
+.screen--menu {
+  background:
+    linear-gradient(90deg, rgba(12, 8, 6, 0.86) 0%, rgba(12, 8, 6, 0.55) 45%, rgba(12, 8, 6, 0.15) 100%),
+    linear-gradient(0deg, rgba(12, 8, 6, 0.75) 0%, transparent 35%);
+}
+
+.menu-layout {
+  padding-top: clamp(16px, 4vh, 48px);
+  padding-bottom: 24px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-layout > .row {
+  flex: 1;
+}
+
+.story-card p,
+.mission-card li {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.story-card p {
+  font-size: 0.95rem;
+}
+
+.mission-steps {
+  padding-left: 1.2rem;
+  margin-bottom: 0.6rem;
+}
+
+.mission-steps li {
+  margin-bottom: 0.35rem;
+  font-size: 0.93rem;
+}
+
+.mission-steps li i {
+  color: var(--cyan);
+  margin-right: 4px;
+}
+
+.mission-fail {
+  color: #ffb3a8;
+}
+
+.difficulty-group .btn {
+  font-size: 0.9rem;
+}
+
+.difficulty-group .btn-check:checked + .btn {
+  background: var(--accent);
+  color: #1b120b;
+  border-color: var(--accent);
+}
+
+.best-score {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.best-score strong {
+  color: var(--gold);
+}
+
+.menu-footer {
+  color: rgba(246, 236, 226, 0.55);
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ overlays */
+.screen--overlay {
+  background: rgba(10, 7, 5, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.screen--victory {
+  background: radial-gradient(ellipse at center, rgba(40, 90, 70, 0.55), rgba(10, 7, 5, 0.8));
+}
+
+.screen--defeat {
+  background: radial-gradient(ellipse at center, rgba(100, 30, 20, 0.55), rgba(10, 7, 5, 0.85));
+}
+
+.end-card {
+  width: min(520px, 94vw);
+  animation: card-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+}
+
+.end-title {
+  font-family: var(--font-title);
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+}
+
+.end-subtitle {
+  color: var(--muted);
+}
+
+.end-score {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(255, 211, 107, 0.35);
+  line-height: 1.1;
+}
+
+.end-rank {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-title);
+  font-size: 3rem;
+  color: #1b120b;
+  background: radial-gradient(circle at 35% 30%, #fff6d8, var(--gold) 45%, #c98a2a);
+  box-shadow: 0 0 40px rgba(255, 211, 107, 0.5);
+}
+
+.end-icon {
+  font-size: 3rem;
+  color: var(--danger);
+  line-height: 1;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 12px 0 0;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.stats-grid > div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed rgba(255, 230, 200, 0.14);
+  padding: 3px 0;
+}
+
+.stats-grid dt {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.stats-grid dd {
+  margin: 0;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 991px) {
+  .screen--menu {
+    background: rgba(12, 8, 6, 0.72);
+  }
+  .brand-title {
+    font-size: clamp(2.6rem, 12vw, 4.2rem);
+  }
+}
+
+@media (max-width: 575px) {
+  .controls-grid {
+    grid-template-columns: 1fr;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .glass-card {
+    padding: 0.9rem 1rem;
+  }
+}

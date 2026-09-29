@@ -1,0 +1,272 @@
+/* ==========================================================================
+   VETA AIROSA — estilos base, identidad visual y componentes compartidos
+   ========================================================================== */
+:root {
+  --bg-deep: #120d0a;
+  --glass: rgba(20, 15, 12, 0.62);
+  --glass-strong: rgba(20, 15, 12, 0.84);
+  --glass-border: rgba(255, 226, 196, 0.14);
+  --text: #f6ece2;
+  --muted: #cdbba8;
+  --accent: #ffb347;
+  --accent-2: #ff7a3d;
+  --silver: #dfe9f3;
+  --cyan: #7fe8ff;
+  --danger: #ff5a4a;
+  --ok: #4ee39a;
+  --gold: #ffd36b;
+  --radius: 14px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --font-ui: 'Chakra Petch', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-title: 'Saira Stencil One', 'Chakra Petch', Impact, sans-serif;
+  --font-mono: 'Chakra Petch', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --bs-body-font-family: var(--font-ui);
+  --bs-body-bg: var(--bg-deep);
+  --bs-body-color: var(--text);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  outline: none;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.7em;
+  padding: 0.12em 0.45em;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 230, 200, 0.28);
+  border-bottom-width: 3px;
+  background: rgba(255, 245, 235, 0.08);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.78em;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ botones */
+.btn {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+}
+
+.btn-accent {
+  --bs-btn-color: #1b120b;
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #1b120b;
+  --bs-btn-hover-bg: #ffc56d;
+  --bs-btn-hover-border-color: #ffc56d;
+  --bs-btn-active-bg: #f09c2c;
+  --bs-btn-active-border-color: #f09c2c;
+  --bs-btn-active-color: #1b120b;
+  background-image: linear-gradient(135deg, #ffc56d, var(--accent) 45%, var(--accent-2));
+  box-shadow: 0 6px 24px rgba(255, 140, 50, 0.35);
+  text-transform: uppercase;
+}
+
+.btn-accent:hover {
+  transform: translateY(-1px);
+}
+
+.btn-glass {
+  --bs-btn-color: var(--text);
+  --bs-btn-bg: rgba(255, 245, 235, 0.07);
+  --bs-btn-border-color: var(--glass-border);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: rgba(255, 245, 235, 0.16);
+  --bs-btn-hover-border-color: rgba(255, 226, 196, 0.3);
+  --bs-btn-active-bg: rgba(255, 245, 235, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+/* ------------------------------------------------------------------ tarjetas */
+.glass-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.glass-card + .glass-card {
+  margin-top: 1rem;
+}
+
+.card-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.65rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.glass-modal {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  color: var(--text);
+}
+
+.glass-modal .modal-header,
+.glass-modal .modal-footer {
+  border-color: var(--glass-border);
+}
+
+.settings-section {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0.6rem 0 0.6rem;
+}
+
+.settings-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: -0.25rem;
+}
+
+.form-range::-webkit-slider-thumb {
+  background: var(--accent);
+}
+
+.form-range::-moz-range-thumb {
+  background: var(--accent);
+}
+
+.form-check-input:checked {
+  background-color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+/* ------------------------------------------------------------------ marca */
+.brand-kicker {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 179, 71, 0.4);
+  background: rgba(255, 179, 71, 0.1);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brand-title {
+  font-family: var(--font-title);
+  font-size: clamp(2.8rem, 8vw, 6.2rem);
+  line-height: 0.95;
+  margin: 0.6rem 0 0.4rem;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #ffffff 0%, var(--silver) 38%, #9fb1c4 55%, #eef4fa 70%, #b7c6d6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 22px rgba(127, 232, 255, 0.18));
+}
+
+.brand-title--sm {
+  font-size: 2.2rem;
+}
+
+.brand-lead {
+  font-size: 1.12rem;
+  color: var(--text);
+  max-width: 38rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* ------------------------------------------------------------------ viñetas */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 5;
+}
+
+#vignette-damage {
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(255, 40, 20, 0.55) 100%);
+}
+
+#vignette-interference {
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 50, 40, 0.35) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 60, 40, 0.06) 0 2px, transparent 2px 5px);
+  animation: interference-flicker 0.18s steps(2) infinite;
+}
+
+@keyframes interference-flicker {
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg-deep);
+  color: var(--text);
+  font-size: 1.2rem;
+  z-index: 100;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
+}

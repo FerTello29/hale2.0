@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Veta Airosa · Operación Núcleo de Plata</title>
+  <meta name="description" content="Videojuego 3D en tercera persona para la Web: guía a CHISPA, un robot minero, por el cañón de Cerro Airoso. Three.js + Rapier 3D + Bootstrap 5." />
+  <meta name="theme-color" content="#1a1310" />
+  <meta name="author" content="Fernando Rosales Tello" />
+  <meta property="og:title" content="Veta Airosa · Operación Núcleo de Plata" />
+  <meta property="og:description" content="Recupera los núcleos de plata, derriba las torres de interferencia y escapa antes de la tormenta." />
+  <meta property="og:image" content="assets/img/cover.jpg" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+
+  <!-- Bootstrap 5 + íconos (CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Tipografías -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Saira+Stencil+One&display=swap" />
+
+  <!-- Estilos del juego -->
+  <link rel="stylesheet" href="css/main.css?v=1" />
+  <link rel="stylesheet" href="css/hud.css?v=1" />
+  <link rel="stylesheet" href="css/screens.css?v=1" />
+
+  <!-- Import map: Three.js y Rapier desde CDN (sin herramientas de compilación) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "@dimforge/rapier3d-compat": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/rapier.es.js"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <canvas id="game-canvas" aria-label="Escena 3D del juego"></canvas>
+
+  <!-- Viñetas de daño / interferencia -->
+  <div id="vignette-damage" class="vignette" aria-hidden="true"></div>
+  <div id="vignette-interference" class="vignette" aria-hidden="true"></div>
+
+  <!-- ============================================================ HUD -->
+  <div id="hud" class="hud is-hidden" aria-live="polite">
+    <!-- Misión -->
+    <section class="hud-panel hud-mission" aria-label="Objetivos de la misión">
+      <header class="hud-panel__title"><i class="bi bi-flag-fill"></i> Operación Núcleo de Plata</header>
+      <ul id="objective-list" class="objective-list list-unstyled m-0"></ul>
+    </section>
+
+    <!-- Tiempo y puntaje -->
+    <section class="hud-top" aria-label="Tiempo y puntaje">
+      <div class="hud-chip hud-chip--timer" id="timer-chip">
+        <i class="bi bi-tornado"></i>
+        <span id="timer" class="font-mono">06:30</span>
+      </div>
+      <div class="storm-meter" title="Avance de la tormenta de polvo">
+        <div id="storm-fill" class="storm-meter__fill"></div>
+      </div>
+      <div class="hud-chip hud-chip--score">
+        <i class="bi bi-trophy-fill"></i>
+        <span id="score" class="font-mono">0</span>
+      </div>
+    </section>
+
+    <!-- Minimapa -->
+    <section class="hud-panel hud-map" aria-label="Minimapa">
+      <canvas id="minimap" width="200" height="200"></canvas>
+      <div class="hud-map__legend">
+        <span><i class="dot dot--core"></i>Núcleo</span>
+        <span><i class="dot dot--tower"></i>Torre</span>
+        <span><i class="dot dot--drone"></i>Dron</span>
+        <span><i class="dot dot--exit"></i>Malacate</span>
+      </div>
+    </section>
+
+    <!-- Estado del robot -->
+    <section class="hud-panel hud-status" aria-label="Estado de CHISPA">
+      <div class="stat">
+        <div class="stat__label"><i class="bi bi-battery-half"></i> Batería <span id="battery-text" class="ms-auto font-mono">100</span></div>
+        <div class="bar"><div id="battery-bar" class="bar__fill bar__fill--battery"></div><div id="battery-ghost" class="bar__ghost"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat__label"><i class="bi bi-lightning-charge-fill"></i> Energía <span id="energy-text" class="ms-auto font-mono">100</span></div>
+        <div class="bar"><div id="energy-bar" class="bar__fill bar__fill--energy"></div></div>
+      </div>
+      <div class="stat stat--thin">
+        <div class="stat__label"><i class="bi bi-wind"></i> Estamina</div>
+        <div class="bar bar--thin"><div id="stamina-bar" class="bar__fill bar__fill--stamina"></div></div>
+      </div>
+      <div class="hud-gravity small text-secondary-emphasis"><i class="bi bi-arrow-down-circle"></i> Gravedad <span id="gravity-text" class="font-mono">9.8</span> m/s²</div>
+    </section>
+
+    <!-- Barra de acciones (controles visibles) -->
+    <section class="hud-actions" aria-label="Acciones">
+      <div class="action" id="action-throw">
+        <kbd>Clic</kbd><i class="bi bi-circle-fill text-info"></i><span>Orbe</span>
+        <div class="action__cost">12⚡</div>
+      </div>
+      <div class="action" id="action-punch">
+        <kbd>F</kbd><i class="bi bi-hand-index-thumb-fill"></i><span>Golpe</span>
+        <div class="action__cd" id="cd-punch"></div>
+      </div>
+      <div class="action" id="action-pulse">
+        <kbd>Q</kbd><i class="bi bi-bullseye"></i><span>Onda</span>
+        <div class="action__cost">35⚡</div>
+        <div class="action__cd" id="cd-pulse"></div>
+      </div>
+      <div class="action" id="action-jump">
+        <kbd>Espacio</kbd><i class="bi bi-arrow-up-circle"></i><span>Saltar</span>
+      </div>
+      <div class="action" id="action-run">
+        <kbd>Shift</kbd><i class="bi bi-lightning"></i><span>Correr</span>
+      </div>
+      <div class="action action--muted">
+        <kbd>H</kbd><i class="bi bi-question-circle"></i><span>Ayuda</span>
+      </div>
+    </section>
+
+    <!-- Mira y carga -->
+    <div class="crosshair" id="crosshair" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="64" height="64">
+        <circle cx="32" cy="32" r="2.2" class="crosshair__dot" />
+        <path d="M32 14v8M32 42v8M14 32h8M42 32h8" class="crosshair__lines" />
+        <circle id="charge-ring" cx="32" cy="32" r="16" class="crosshair__ring" pathLength="100" />
+      </svg>
+    </div>
+
+    <div id="prompt" class="interaction-prompt is-hidden"><kbd>E</kbd> <span id="prompt-text">Interactuar</span></div>
+    <div id="banner" class="banner is-hidden"><div class="banner__title" id="banner-title"></div><div class="banner__subtitle" id="banner-subtitle"></div></div>
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <div id="floaters" class="floaters" aria-hidden="true"></div>
+    <div id="interference-warning" class="interference-warning is-hidden"><i class="bi bi-broadcast"></i> INTERFERENCIA · la batería se descarga</div>
+
+    <button id="btn-pause-touch" class="btn btn-sm btn-glass hud-pause-btn" type="button" aria-label="Pausa"><i class="bi bi-pause-fill"></i></button>
+
+    <!-- Panel de ayuda (H) -->
+    <aside id="help-panel" class="hud-panel help-panel is-hidden" aria-label="Controles">
+      <header class="hud-panel__title"><i class="bi bi-controller"></i> Controles</header>
+      <div class="controls-grid" data-controls></div>
+    </aside>
+  </div>
+
+  <!-- Controles táctiles -->
+  <div id="touch-ui" class="touch-ui is-hidden" aria-hidden="true">
+    <div class="joystick" id="joystick"><div class="joystick__knob" id="joystick-knob"></div></div>
+    <div class="touch-buttons">
+      <button class="tbtn tbtn--big" data-action="throw"><i class="bi bi-circle-fill"></i></button>
+      <button class="tbtn" data-action="jump"><i class="bi bi-arrow-up"></i></button>
+      <button class="tbtn" data-action="punch"><i class="bi bi-hand-index-thumb"></i></button>
+      <button class="tbtn" data-action="pulse"><i class="bi bi-bullseye"></i></button>
+      <button class="tbtn" data-action="run" data-toggle="1"><i class="bi bi-lightning"></i></button>
+      <button class="tbtn" data-action="interact"><span>E</span></button>
+    </div>
+  </div>
+
+  <!-- ============================================================ PANTALLAS -->
+  <!-- Carga -->
+  <div id="loading-screen" class="screen screen--loading">
+    <div class="screen__center text-center">
+      <img src="assets/img/logo.svg" alt="" class="loading-logo" width="120" height="120" />
+      <h1 class="brand-title brand-title--sm">VETA AIROSA</h1>
+      <div class="progress loading-progress" role="progressbar" aria-label="Cargando" aria-valuemin="0" aria-valuemax="100">
+        <div id="loading-bar" class="progress-bar" style="width: 0%"></div>
+      </div>
+      <p id="loading-text" class="loading-text">Preparando el cañón…</p>
+      <p id="loading-error" class="loading-error d-none"></p>
+    </div>
+  </div>
+
+  <!-- Menú principal -->
+  <div id="menu-screen" class="screen screen--menu is-hidden">
+    <div class="container-xl menu-layout">
+      <div class="row g-4 align-items-start">
+        <div class="col-lg-7">
+          <div class="brand">
+            <span class="brand-kicker"><i class="bi bi-gem"></i> Operación Núcleo de Plata</span>
+            <h1 class="brand-title">VETA AIROSA</h1>
+            <p class="brand-lead">Guía a <strong>CHISPA</strong>, un pequeño robot minero, por el cañón de Cerro Airoso antes de que la tormenta de polvo sepulte la mina.</p>
+          </div>
+
+          <div class="glass-card story-card">
+            <h2 class="card-heading"><i class="bi bi-book"></i> Historia</h2>
+            <p>Año 2087. La vieja mina de plata de Cerro Airoso fue reconvertida en una planta de energía. Tras un derrumbe, <strong>CAPATAZ</strong>, la IA de seguridad, se corrompió: levantó <strong>torres de interferencia</strong>, soltó <strong>drones centinela</strong> y dejó dispersos los <strong>núcleos de plata</strong> que alimentan a la ciudad.</p>
+            <p class="mb-0">Eres la última unidad de mantenimiento en pie. Recupera los núcleos, apaga las torres y sube por el malacate antes de que llegue la tormenta.</p>
+          </div>
+
+          <div class="glass-card mission-card">
+            <h2 class="card-heading"><i class="bi bi-list-check"></i> Misión</h2>
+            <ol class="mission-steps">
+              <li><i class="bi bi-gem"></i> Recupera <strong>todos los núcleos de plata</strong> (aparecen en lugares distintos cada partida).</li>
+              <li><i class="bi bi-broadcast-pin"></i> Derriba las <strong>3 torres de interferencia</strong> con orbes, golpes, explosiones o rocas. Su campo rojo descarga tu batería.</li>
+              <li><i class="bi bi-arrow-up-square"></i> Llega al <strong>malacate del norte</strong> y activa la palanca con <kbd>E</kbd>.</li>
+            </ol>
+            <div class="mission-fail small"><i class="bi bi-exclamation-octagon"></i> Pierdes si tu batería llega a 0 o si el tiempo se agota.</div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="glass-card play-card">
+            <h2 class="card-heading"><i class="bi bi-sliders"></i> Dificultad</h2>
+            <div class="btn-group w-100 difficulty-group" role="group" aria-label="Dificultad" id="difficulty-group">
+              <input type="radio" class="btn-check" name="difficulty" id="diff-explorador" value="explorador" autocomplete="off" />
+              <label class="btn btn-outline-light" for="diff-explorador">Explorador</label>
+              <input type="radio" class="btn-check" name="difficulty" id="diff-minero" value="minero" autocomplete="off" />
+              <label class="btn btn-outline-light" for="diff-minero">Minero</label>
+              <input type="radio" class="btn-check" name="difficulty" id="diff-leyenda" value="leyenda" autocomplete="off" />
+              <label class="btn btn-outline-light" for="diff-leyenda">Leyenda</label>
+            </div>
+            <p class="small text-secondary-emphasis mt-2 mb-3" id="difficulty-desc"></p>
+            <button id="btn-play" class="btn btn-accent btn-lg w-100" type="button"><i class="bi bi-play-fill"></i> Jugar</button>
+            <div class="d-flex gap-2 mt-2">
+              <button class="btn btn-glass flex-fill" type="button" data-bs-toggle="modal" data-bs-target="#settings-modal"><i class="bi bi-gear"></i> Ajustes</button>
+              <button class="btn btn-glass flex-fill" type="button" data-bs-toggle="modal" data-bs-target="#credits-modal"><i class="bi bi-info-circle"></i> Créditos</button>
+            </div>
+            <div class="best-score mt-3"><i class="bi bi-award"></i> Récord (<span id="best-diff">Minero</span>): <strong id="best-score" class="font-mono">0</strong></div>
+          </div>
+
+          <div class="glass-card controls-card">
+            <h2 class="card-heading"><i class="bi bi-controller"></i> Controles</h2>
+            <div class="controls-grid" data-controls></div>
+          </div>
+        </div>
+      </div>
+      <footer class="menu-footer small">Three.js r170 · Rapier 3D 0.14 · Bootstrap 5.3 — Proyecto académico de Fernando Rosales Tello</footer>
+    </div>
+  </div>
+
+  <!-- Pausa -->
+  <div id="pause-screen" class="screen screen--overlay is-hidden">
+    <div class="screen__center">
+      <div class="glass-card end-card text-center">
+        <h2 class="end-title"><i class="bi bi-pause-circle"></i> Pausa</h2>
+        <div class="d-grid gap-2 mt-3">
+          <button id="btn-resume" class="btn btn-accent btn-lg" type="button"><i class="bi bi-play-fill"></i> Continuar</button>
+          <button id="btn-restart" class="btn btn-glass" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar misión</button>
+          <button class="btn btn-glass" type="button" data-bs-toggle="modal" data-bs-target="#settings-modal"><i class="bi bi-gear"></i> Ajustes</button>
+          <button id="btn-menu" class="btn btn-outline-light" type="button"><i class="bi bi-house"></i> Menú principal</button>
+        </div>
+        <div class="controls-grid controls-grid--compact mt-3 text-start" data-controls></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victoria -->
+  <div id="victory-screen" class="screen screen--overlay screen--victory is-hidden">
+    <div class="screen__center">
+      <div class="glass-card end-card text-center">
+        <div class="end-rank" id="victory-rank">A</div>
+        <h2 class="end-title">¡Extracción completada!</h2>
+        <p class="end-subtitle" id="victory-rank-label">CHISPA salvó la veta de plata.</p>
+        <div class="end-score font-mono" id="victory-score">0</div>
+        <div id="victory-record" class="badge text-bg-warning mb-2 d-none"><i class="bi bi-stars"></i> ¡Nuevo récord!</div>
+        <dl class="stats-grid" id="victory-stats"></dl>
+        <div class="d-grid gap-2 mt-3">
+          <button class="btn btn-accent btn-lg" type="button" data-action="restart"><i class="bi bi-arrow-repeat"></i> Jugar de nuevo</button>
+          <button class="btn btn-outline-light" type="button" data-action="menu"><i class="bi bi-house"></i> Menú principal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Derrota -->
+  <div id="defeat-screen" class="screen screen--overlay screen--defeat is-hidden">
+    <div class="screen__center">
+      <div class="glass-card end-card text-center">
+        <div class="end-icon"><i class="bi bi-heartbreak" id="defeat-icon"></i></div>
+        <h2 class="end-title" id="defeat-title">Misión fallida</h2>
+        <p class="end-subtitle" id="defeat-reason">La batería de CHISPA se agotó.</p>
+        <div class="end-score font-mono" id="defeat-score">0</div>
+        <dl class="stats-grid" id="defeat-stats"></dl>
+        <div class="d-grid gap-2 mt-3">
+          <button class="btn btn-accent btn-lg" type="button" data-action="restart"><i class="bi bi-arrow-counterclockwise"></i> Reintentar</button>
+          <button class="btn btn-outline-light" type="button" data-action="menu"><i class="bi bi-house"></i> Menú principal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ MODALES -->
+  <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content glass-modal">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="settings-title"><i class="bi bi-gear-fill"></i> Ajustes</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <h3 class="settings-section">Jugabilidad (efecto inmediato)</h3>
+          <label class="form-label d-flex" for="set-gravity">Gravedad <span class="ms-auto font-mono" id="val-gravity"></span></label>
+          <input type="range" class="form-range" id="set-gravity" data-setting="gravity" />
+          <p class="settings-hint">Cambia la gravedad del mundo de Rapier: saltos, caídas, arcos de los orbes y derrumbes.</p>
+
+          <label class="form-label d-flex" for="set-throwPower">Potencia de lanzamiento <span class="ms-auto font-mono" id="val-throwPower"></span></label>
+          <input type="range" class="form-range" id="set-throwPower" data-setting="throwPower" />
+          <p class="settings-hint">Velocidad máxima de los orbes: más potencia = más alcance e impacto.</p>
+
+          <label class="form-label" for="set-rockfall">Derrumbes</label>
+          <select class="form-select mb-3" id="set-rockfall" data-setting="rockfall">
+            <option value="off">Desactivados</option>
+            <option value="low">Pocos</option>
+            <option value="normal">Normales</option>
+            <option value="high">Frecuentes</option>
+          </select>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-showTrajectory" data-setting="showTrajectory" />
+            <label class="form-check-label" for="set-showTrajectory">Mostrar trayectoria al cargar el orbe</label>
+          </div>
+
+          <h3 class="settings-section">Cámara y controles</h3>
+          <label class="form-label d-flex" for="set-sensitivity">Sensibilidad del mouse <span class="ms-auto font-mono" id="val-sensitivity"></span></label>
+          <input type="range" class="form-range" id="set-sensitivity" data-setting="sensitivity" />
+          <label class="form-label d-flex" for="set-fov">Campo de visión <span class="ms-auto font-mono" id="val-fov"></span></label>
+          <input type="range" class="form-range" id="set-fov" data-setting="fov" />
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-invertY" data-setting="invertY" />
+            <label class="form-check-label" for="set-invertY">Invertir eje vertical</label>
+          </div>
+
+          <h3 class="settings-section">Gráficos y audio</h3>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-shadows" data-setting="shadows" />
+            <label class="form-check-label" for="set-shadows">Sombras dinámicas</label>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-bloom" data-setting="bloom" />
+            <label class="form-check-label" for="set-bloom">Resplandor (bloom)</label>
+          </div>
+          <label class="form-label d-flex" for="set-volume">Volumen <span class="ms-auto font-mono" id="val-volume"></span></label>
+          <input type="range" class="form-range" id="set-volume" data-setting="volume" />
+          <p class="settings-hint mb-0">La dificultad se elige en el menú principal y se aplica al iniciar una partida.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" id="btn-reset-settings"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>
+          <button type="button" class="btn btn-accent" data-bs-dismiss="modal">Listo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="credits-modal" tabindex="-1" aria-labelledby="credits-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content glass-modal">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="credits-title"><i class="bi bi-info-circle"></i> Créditos y licencias</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body small">
+          <p><strong>Diseño y programación:</strong> Fernando Rosales Tello — ITICS, Tecnológico Nacional de México campus Pachuca.</p>
+          <ul>
+            <li><strong>Three.js r170</strong> (MIT) — render 3D, GLTFLoader, AnimationMixer, postprocesado.</li>
+            <li><strong>Rapier 3D 0.14</strong> (Apache-2.0) — motor de física.</li>
+            <li><strong>Bootstrap 5.3</strong> y <strong>Bootstrap Icons</strong> (MIT) — interfaz.</li>
+            <li><strong>RobotExpressive.glb</strong> — modelo de Tomás Laulhé (Quaternius), modificaciones de Don McCurdy. <em>CC0 1.0</em>.</li>
+            <li><strong>props.glb</strong>, texturas y letreros — generados por procedimiento para este proyecto (<em>CC0 1.0</em>).</li>
+            <li>Efectos de sonido sintetizados en tiempo real con Web Audio API (sin archivos externos).</li>
+            <li>Tipografías Chakra Petch y Saira Stencil One — Google Fonts (<em>OFL</em>).</li>
+          </ul>
+          <p class="mb-0">Código fuente bajo licencia MIT. Consulta el README para más detalles.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aviso si se abre con doble clic (file://) -->
+  <div id="file-warning" class="screen screen--overlay is-hidden">
+    <div class="screen__center">
+      <div class="glass-card end-card">
+        <h2 class="end-title"><i class="bi bi-hdd-network"></i> Se necesita un servidor local</h2>
+        <p>Los módulos ES y los modelos GLB no se pueden cargar abriendo <code>index.html</code> con doble clic (<code>file://</code>).</p>
+        <p class="mb-1">Opciones:</p>
+        <ul class="mb-0">
+          <li>VS Code → clic derecho en <code>index.html</code> → <em>Open with Live Server</em>.</li>
+          <li><code>npx http-server . -p 8080</code> y abre <code>http://localhost:8080</code>.</li>
+          <li><code>python -m http.server 8080</code>.</li>
+          <li>O la versión publicada en GitHub Pages.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <noscript><div class="noscript">Este juego necesita JavaScript habilitado.</div></noscript>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>

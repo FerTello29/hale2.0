@@ -1,0 +1,673 @@
+/* ==========================================================================
+   HUD — interfaz dentro del juego (responsiva)
+   ========================================================================== */
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  font-size: 14px;
+  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+
+.hud-panel {
+  position: absolute;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+}
+
+.hud-panel__title {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------------ misión */
+.hud-mission {
+  top: 12px;
+  left: 14px;
+  width: 300px;
+}
+
+.objective-list li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid rgba(255, 230, 200, 0.07);
+}
+
+.objective-list li:first-child {
+  border-top: 0;
+}
+
+.objective-list .obj-icon {
+  color: var(--silver);
+  font-size: 1rem;
+}
+
+.objective-list .obj-label {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.objective-list .obj-count {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.objective-list .obj-bar {
+  grid-column: 2 / 4;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.objective-list .obj-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--cyan), var(--silver));
+  transition: width 0.4s ease;
+}
+
+.objective-list li.is-done .obj-label {
+  color: var(--ok);
+  text-decoration: line-through;
+  text-decoration-color: rgba(78, 227, 154, 0.5);
+}
+
+.objective-list li.is-done .obj-icon,
+.objective-list li.is-done .obj-count {
+  color: var(--ok);
+}
+
+.objective-list li.is-done .obj-bar span {
+  background: var(--ok);
+}
+
+.objective-list li.is-locked {
+  opacity: 0.55;
+}
+
+.objective-list li.is-pulse {
+  animation: obj-pulse 0.8s ease 2;
+}
+
+@keyframes obj-pulse {
+  50% {
+    background: rgba(127, 232, 255, 0.12);
+  }
+}
+
+/* ------------------------------------------------------------------ tiempo */
+.hud-top {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  font-size: 1.25rem;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.hud-chip--timer i {
+  color: var(--accent);
+}
+
+.hud-chip--score i {
+  color: var(--gold);
+}
+
+.hud-chip--timer.is-critical {
+  color: #fff;
+  background: rgba(200, 40, 30, 0.7);
+  border-color: rgba(255, 120, 100, 0.6);
+  animation: critical 0.9s ease infinite;
+}
+
+@keyframes critical {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.storm-meter {
+  width: 120px;
+  height: 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+
+.storm-meter__fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f3c07c, #c9773a, #8a3f22);
+}
+
+/* ------------------------------------------------------------------ minimapa */
+.hud-map {
+  top: 12px;
+  right: 14px;
+  padding: 8px;
+}
+
+#minimap {
+  display: block;
+  width: 180px;
+  height: 180px;
+  border-radius: 10px;
+}
+
+.hud-map__legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.dot--core { background: #bfefff; box-shadow: 0 0 6px #7fe8ff; }
+.dot--tower { background: #ff4a3a; border-radius: 2px; }
+.dot--drone { background: #ff9a3a; }
+.dot--exit { background: #4ee39a; }
+
+/* ------------------------------------------------------------------ estado */
+.hud-status {
+  left: 14px;
+  bottom: 12px;
+  width: 280px;
+}
+
+.stat + .stat {
+  margin-top: 8px;
+}
+
+.stat__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.bar {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.bar--thin {
+  height: 6px;
+}
+
+.bar__fill,
+.bar__ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  border-radius: inherit;
+}
+
+.bar__fill {
+  z-index: 2;
+  transition: width 0.12s linear;
+}
+
+.bar__ghost {
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.55);
+  transition: width 0.6s ease 0.25s;
+}
+
+.bar__fill--battery {
+  background: linear-gradient(90deg, #36d88a, #8dffb8);
+}
+
+.bar__fill--battery.is-low {
+  background: linear-gradient(90deg, #ff4030, #ff9a60);
+  animation: critical 0.8s ease infinite;
+}
+
+.bar__fill--energy {
+  background: linear-gradient(90deg, #39b8ff, var(--cyan));
+}
+
+.bar__fill--stamina {
+  background: linear-gradient(90deg, #ffb347, #ffe0a0);
+}
+
+.hud-gravity {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ acciones */
+.hud-actions {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.action {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  padding: 7px 8px 6px;
+  border-radius: 10px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+}
+
+.action i {
+  font-size: 1.15rem;
+}
+
+.action--muted {
+  opacity: 0.7;
+}
+
+.action.is-disabled {
+  opacity: 0.45;
+}
+
+.action__cost {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.6rem;
+  color: var(--cyan);
+}
+
+.action__cd {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 0%;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ mira */
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
+}
+
+.crosshair__dot {
+  fill: #fff;
+}
+
+.crosshair__lines {
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: transform 0.15s ease;
+  transform-origin: 32px 32px;
+}
+
+.crosshair.is-aiming .crosshair__lines {
+  transform: scale(0.7);
+}
+
+.crosshair__ring {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 3;
+  stroke-dasharray: 0 100;
+  transform: rotate(-90deg);
+  transform-origin: 32px 32px;
+  filter: drop-shadow(0 0 4px var(--cyan));
+}
+
+.crosshair.is-hit .crosshair__lines {
+  stroke: var(--accent);
+}
+
+/* ------------------------------------------------------------------ mensajes */
+.interaction-prompt {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  border: 1px solid rgba(78, 227, 154, 0.5);
+  font-weight: 600;
+  box-shadow: 0 0 24px rgba(78, 227, 154, 0.25);
+}
+
+.interaction-prompt.is-locked {
+  border-color: rgba(255, 90, 74, 0.5);
+  box-shadow: 0 0 24px rgba(255, 90, 74, 0.2);
+}
+
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  text-align: center;
+  padding: 12px 28px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, transparent, rgba(20, 15, 12, 0.8) 20%, rgba(20, 15, 12, 0.8) 80%, transparent);
+  animation: banner-in 0.35s ease;
+  min-width: 320px;
+}
+
+.banner__title {
+  font-family: var(--font-title);
+  font-size: 2rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+}
+
+.banner__subtitle {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.banner.is-success .banner__title { color: var(--ok); }
+.banner.is-danger .banner__title { color: var(--danger); }
+.banner.is-info .banner__title { color: var(--cyan); }
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px) scale(0.96);
+  }
+}
+
+.toasts {
+  position: absolute;
+  right: 14px;
+  top: 270px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.toast-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--cyan);
+  font-weight: 600;
+  font-size: 0.85rem;
+  animation: toast-in 0.25s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.toast-item.is-out {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.toast-item--core { border-left-color: var(--silver); }
+.toast-item--gold { border-left-color: var(--gold); }
+.toast-item--battery { border-left-color: var(--ok); }
+.toast-item--warn { border-left-color: var(--accent); }
+.toast-item--danger { border-left-color: var(--danger); }
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+.floaters {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.floater {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--gold);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.floater small {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.interference-warning {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(180, 30, 20, 0.75);
+  border: 1px solid rgba(255, 120, 100, 0.6);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  animation: critical 0.7s ease infinite;
+}
+
+.hud-pause-btn {
+  position: absolute;
+  right: 14px;
+  top: 262px;
+  pointer-events: auto;
+  display: none;
+}
+
+/* ------------------------------------------------------------------ ayuda */
+.help-panel {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, 92vw);
+  padding: 14px 18px;
+  background: var(--glass-strong);
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  font-size: 0.86rem;
+}
+
+.controls-grid .ctrl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.controls-grid .ctrl__keys {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  min-width: 78px;
+}
+
+.controls-grid--compact {
+  font-size: 0.78rem;
+}
+
+/* ------------------------------------------------------------------ táctil */
+.touch-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.joystick {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: 150px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.joystick__knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(255, 179, 71, 0.55);
+  border: 2px solid rgba(255, 220, 170, 0.8);
+}
+
+.touch-buttons {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: 140px;
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.tbtn {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(20, 15, 12, 0.55);
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 700;
+  touch-action: none;
+}
+
+.tbtn--big {
+  background: rgba(127, 232, 255, 0.25);
+  border-color: rgba(127, 232, 255, 0.6);
+}
+
+.tbtn.is-active {
+  background: rgba(255, 179, 71, 0.45);
+}
+
+body.is-touch .hud-actions,
+body.is-touch .crosshair__lines {
+  display: none;
+}
+
+body.is-touch .hud-pause-btn {
+  display: inline-block;
+}
+
+/* ------------------------------------------------------------------ responsivo */
+@media (max-width: 1100px) {
+  .hud-mission { width: 250px; }
+  .hud-status { width: 240px; }
+  .action { min-width: 54px; font-size: 0.65rem; }
+}
+
+@media (max-width: 820px) {
+  .hud { font-size: 12px; }
+  .hud-mission { width: 210px; padding: 8px 10px; }
+  .objective-list .obj-label { font-size: 0.78rem; }
+  .hud-top { top: auto; bottom: 12px; }
+  .hud-chip { font-size: 1rem; padding: 4px 10px; }
+  .storm-meter { width: 70px; }
+  #minimap { width: 120px; height: 120px; }
+  .hud-map__legend { display: none; }
+  .hud-status { width: 200px; bottom: auto; top: 50%; transform: translateY(-50%); }
+  .hud-actions { display: none; }
+  .toasts { top: 160px; }
+  .hud-pause-btn { top: 150px; }
+  .banner__title { font-size: 1.4rem; }
+  .banner { min-width: 240px; }
+}
+
+@media (max-height: 520px) {
+  .hud-mission { transform: scale(0.85); transform-origin: top left; }
+  .hud-map { transform: scale(0.8); transform-origin: top right; }
+  .hud-status { transform: translateY(-50%) scale(0.85); transform-origin: left center; }
+  .joystick { bottom: 40px; }
+  .touch-buttons { bottom: 30px; }
+}
