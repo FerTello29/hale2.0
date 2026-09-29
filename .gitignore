@@ -1,5 +1,5 @@
 # Dependencias locales opcionales (el juego usa CDN, no las necesita)
-node_modules/
+node_modules
 tools/node_modules/
 tools/package-lock.json
 
@@ -13,3 +13,7 @@ desktop.ini
 # Salidas temporales
 *.tmp
 *.zip
+
+# Python
+__pycache__/
+*.pyc
