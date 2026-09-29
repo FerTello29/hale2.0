@@ -407,6 +407,7 @@ El proyecto se probó en **Chromium 141 sin interfaz** (render por software Swif
 - explosiones en cadena, caída a la grieta con reaparición, derrumbes con aviso;
 - cambio de **gravedad** desde el control deslizante (se refleja en `world.gravity` y en el HUD) y de potencia de lanzamiento;
 - flujo completo: 10/10 núcleos → 3/3 torres → malacate → **victoria**; derrota por batería; derrota por tormenta; reinicio y regreso al menú;
+- sesión de 75 s con entradas aleatorias en dificultad *Leyenda* sin errores ni advertencias en la consola;
 - diseño en 1280×720, 1024×600, 844×390 (táctil horizontal) y 390×844 (táctil vertical).
 
 > Nota honesta: las pruebas se hicieron en un navegador automatizado con render por software, donde la tasa de cuadros no es representativa. En una computadora con GPU el juego está pensado para 60 FPS. Si notas lentitud, desactiva *sombras* o *bloom* en Ajustes.

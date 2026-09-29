@@ -34,6 +34,9 @@ export class Input {
     /** Entrada de los controles táctiles (la escribe TouchControls). */
     this.virtual = { x: 0, y: 0, keys: new Set() };
     this.onLockChange = null;
+    this.onLockError = null;
+    /** Con mouse, los clics solo cuentan como acciones si el puntero está capturado. */
+    this.requireLockForMouse = true;
 
     this.#bind();
   }
@@ -41,7 +44,10 @@ export class Input {
   #bind() {
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      // evitar que la página se desplace con espacio/flechas solo mientras se juega
+      if (document.body.dataset.screen === 'game' && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        e.preventDefault();
+      }
       if (!e.repeat) this.pressedSet.add(e.code);
       this.keys.add(e.code);
     });
@@ -52,6 +58,7 @@ export class Input {
     window.addEventListener('blur', () => this.clear());
 
     const onDown = (e) => {
+      if (this.requireLockForMouse && !this.locked) return; // el primer clic solo captura el puntero
       const code = `Mouse${e.button}`;
       this.keys.add(code);
       this.pressedSet.add(code);
@@ -73,6 +80,7 @@ export class Input {
     }, { passive: false });
     this.element.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    document.addEventListener('pointerlockerror', () => this.onLockError?.());
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.element;
       if (!this.locked) {

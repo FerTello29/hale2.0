@@ -10,6 +10,7 @@ export class TouchControls {
     this.root = document.getElementById('touch-ui');
     if (!this.enabled) return;
     document.body.classList.add('is-touch');
+    this.input.requireLockForMouse = false;
     this.#joystick();
     this.#buttons();
     this.#look();

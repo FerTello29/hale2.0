@@ -20,6 +20,7 @@ import { Level, SPAWN_POINT } from '../world/Level.js';
 import { heightAt } from '../world/Terrain.js';
 import { Player } from '../entities/Player.js';
 import { DroneSquad } from '../entities/Drone.js';
+import { EnergyOrb, EnemyBolt } from '../entities/Projectiles.js';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js';
 import { CombatSystem } from '../gameplay/CombatSystem.js';
 import { Spawner } from '../gameplay/Spawner.js';
@@ -89,9 +90,24 @@ export class Game {
     this.screens.show('menu');
     if (assets.warnings.length) console.warn(assets.warnings);
 
-    // precompilar shaders para evitar tirones en el primer cuadro
-    this.renderer.compile(this.scene, this.camera);
+    // precompilar shaders (incluidos los de efectos que aparecen después) para evitar tirones
+    this.#warmUpShaders();
     this.renderer.setAnimationLoop(() => this.#loop());
+  }
+
+  #warmUpShaders() {
+    const far = new THREE.Vector3(0, -60, 0);
+    const orb = new EnergyOrb(this, far, new THREE.Vector3(), 0);
+    const bolt = new EnemyBolt(this, far.clone().setX(3), new THREE.Vector3(), 0);
+    this.fx.shockwave(far, 1, 0xffffff);
+    this.fx.warning(far, 1, 0.01);
+    this.fx.burst('explosion', far);
+    this.combat.trajectory.visible = true;
+    this.renderer.compile(this.scene, this.camera);
+    this.combat.trajectory.visible = false;
+    orb.dispose();
+    bolt.dispose();
+    this.fx.reset();
   }
 
   #createRenderer() {
@@ -120,6 +136,11 @@ export class Game {
     window.addEventListener('resize', () => this.#onResize());
     this.input.onLockChange = (locked) => {
       if (!locked && this.state === 'playing' && !this.touch.enabled) this.pause();
+    };
+    this.input.onLockError = () => {
+      if (this.state === 'playing') {
+        this.bus.emit('hud:toast', { text: 'Haz clic en la escena para controlar la cámara', type: 'warn', icon: 'mouse' });
+      }
     };
     this.canvas.addEventListener('mousedown', () => {
       if (this.state === 'playing' && !this.input.locked && !this.touch.enabled) this.input.requestLock();
