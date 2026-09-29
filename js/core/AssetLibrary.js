@@ -8,26 +8,27 @@ import { PATHS } from '../config.js';
 import { PROP_BUILDERS } from '../world/PropFactory.js';
 
 const TEXTURES = {
-  groundAlbedo: 'ground_albedo.jpg',
-  groundNormal: 'ground_normal.jpg',
-  rockAlbedo: 'rock_albedo.jpg',
-  rockNormal: 'rock_normal.jpg',
-  stoneAlbedo: 'stone_albedo.jpg',
-  stoneNormal: 'stone_normal.jpg',
-  wallAlbedo: 'stonewall_albedo.jpg',
-  wallNormal: 'stonewall_normal.jpg',
-  woodAlbedo: 'wood_albedo.jpg',
-  woodNormal: 'wood_normal.jpg',
-  crateAlbedo: 'crate_albedo.jpg',
-  crateNormal: 'crate_normal.jpg',
-  supplyAlbedo: 'supply_albedo.jpg',
-  barrelAlbedo: 'barrel_albedo.jpg',
-  metalAlbedo: 'metal_albedo.jpg',
-  metalNormal: 'metal_normal.jpg',
-  signDanger: 'sign_danger.jpg',
-  signHoist: 'sign_hoist.jpg',
-  signCamp: 'sign_camp.jpg',
+  groundAlbedo: 'jungle_ground_albedo.jpg',
+  groundNormal: 'jungle_ground_normal.jpg',
+  rockAlbedo: 'alien_rock_albedo.jpg',
+  rockNormal: 'alien_rock_normal.jpg',
+  rockVeins: 'alien_rock_veins.png',
+  ruinAlbedo: 'ruin_stone_albedo.jpg',
+  ruinNormal: 'ruin_stone_normal.jpg',
+  ruinGlyphs: 'ruin_glyphs.png',
+  barkAlbedo: 'bark_albedo.jpg',
+  barkNormal: 'bark_normal.jpg',
+  metalAlbedo: 'metal_panel_albedo.jpg',
+  metalNormal: 'metal_panel_normal.jpg',
+  crateAlbedo: 'crate_military_albedo.jpg',
+  crateNormal: 'crate_military_normal.jpg',
+  canisterAlbedo: 'canister_albedo.jpg',
+  fern: 'fern.png',
+  grass: 'grass.png',
 };
+
+/** Factor de brillo por material emisivo del GLB. */
+const GLOW_SCALE = { GlowCyan: 0.6, GlowTeal: 0.65, GlowMagenta: 0.7, GlowViolet: 0.7, GlowAmber: 0.65, GlowRed: 0.7, ArmorGlow: 0.7 };
 
 export class AssetLibrary {
   constructor(renderer) {
@@ -66,8 +67,8 @@ export class AssetLibrary {
       );
     }
 
-    jobs.push(this.#loadRobot().finally(() => tick('Robot CHISPA')));
-    jobs.push(this.#loadProps().finally(() => tick('Utilería 3D')));
+    jobs.push(this.#loadRobot().finally(() => tick('Unidad NOVA-7')));
+    jobs.push(this.#loadProps().finally(() => tick('Arsenal y criaturas')));
 
     await Promise.all(jobs);
     this.#configureTextures();
@@ -135,7 +136,7 @@ export class AssetLibrary {
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
       tex.anisotropy = aniso;
-      tex.colorSpace = key.includes('Normal') ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+      tex.colorSpace = key.includes('Normal') || key === 'rockVeins' || key === 'ruinGlyphs' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
       tex.needsUpdate = true;
     }
   }
@@ -144,32 +145,47 @@ export class AssetLibrary {
     const t = this.textures;
     const std = (params) => new THREE.MeshStandardMaterial(params);
     this.materials = {
-      stone: std({ map: t.stoneAlbedo, normalMap: t.stoneNormal, roughness: 0.85 }),
-      wall: std({ map: t.wallAlbedo, normalMap: t.wallNormal, roughness: 0.9 }),
-      wood: std({ map: t.woodAlbedo, normalMap: t.woodNormal, roughness: 0.8 }),
-      crate: std({ map: t.crateAlbedo, normalMap: t.crateNormal, roughness: 0.75 }),
-      supply: std({ map: t.supplyAlbedo, roughness: 0.55, metalness: 0.35, emissive: 0x0b2a18, emissiveIntensity: 0.4 }),
-      barrel: std({ map: t.barrelAlbedo, roughness: 0.5, metalness: 0.45 }),
-      barrelCap: std({ color: 0x5a1712, roughness: 0.5, metalness: 0.6 }),
-      metal: std({ map: t.metalAlbedo, normalMap: t.metalNormal, roughness: 0.55, metalness: 0.7 }),
-      rail: std({ color: 0x8b8f96, roughness: 0.35, metalness: 0.9 }),
-      rock: std({ map: t.rockAlbedo, normalMap: t.rockNormal, roughness: 0.95 }),
-      boulder: std({ map: t.rockAlbedo, normalMap: t.rockNormal, roughness: 0.9, color: 0xd8c0a8 }),
-      rope: std({ color: 0x9c7a4c, roughness: 1 }),
-      signDanger: std({ map: t.signDanger, roughness: 0.6 }),
-      signHoist: std({ map: t.signHoist, roughness: 0.6 }),
-      signCamp: std({ map: t.signCamp, roughness: 0.7 }),
-      debris: std({ map: t.woodAlbedo, roughness: 0.85 }),
+      crate: std({ map: t.crateAlbedo, normalMap: t.crateNormal, roughness: 0.6, metalness: 0.35 }),
+      canister: std({ map: t.canisterAlbedo, roughness: 0.35, metalness: 0.45 }),
+      canisterCap: std({ color: 0x2a2e34, roughness: 0.4, metalness: 0.8 }),
+      hull: std({ map: t.metalAlbedo, normalMap: t.metalNormal, roughness: 0.45, metalness: 0.6 }),
+      hullDark: std({ map: t.metalAlbedo, normalMap: t.metalNormal, color: 0x5a6068, roughness: 0.5, metalness: 0.65 }),
+      ruin: std({
+        map: t.ruinAlbedo, normalMap: t.ruinNormal, roughness: 0.85,
+        emissive: 0x9a5cff, emissiveMap: t.ruinGlyphs, emissiveIntensity: 1.4,
+      }),
+      ruinPlain: std({ map: t.ruinAlbedo, normalMap: t.ruinNormal, roughness: 0.88 }),
+      rock: std({ map: t.rockAlbedo, normalMap: t.rockNormal, roughness: 0.9, emissive: 0x35e8ff, emissiveMap: t.rockVeins, emissiveIntensity: 0.9 }),
+      boulder: std({ map: t.rockAlbedo, normalMap: t.rockNormal, roughness: 0.85, color: 0xb8c0d0 }),
+      bark: std({ map: t.barkAlbedo, normalMap: t.barkNormal, roughness: 0.9 }),
+      fern: std({ map: t.fern, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.8, emissive: 0x0c3a2c, emissiveIntensity: 0.6 }),
+      grass: std({ map: t.grass, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.9 }),
+      debris: std({ map: t.metalAlbedo, roughness: 0.5, metalness: 0.6 }),
+      stone: std({ map: t.ruinAlbedo, normalMap: t.ruinNormal, roughness: 0.85 }),
     };
-    // metal de las vagonetas: aplica textura oxidada al material del GLB
-    const cart = this.props.MineCart;
-    cart?.traverse((o) => {
-      if (o.isMesh && o.material?.name === 'RustMetal' && !o.material.map) {
-        o.material.map = t.metalAlbedo;
-        o.material.color.set(0xd6b8a0);
-        o.material.needsUpdate = true;
-      }
-    });
+    // superficies del GLB con textura en tiempo de ejecución
+    const swap = { RuinStone: this.materials.ruin, HullPanel: this.materials.hull, HullDark: this.materials.hullDark };
+    for (const obj of Object.values(this.props)) {
+      obj.traverse((o) => {
+        if (o.isMesh && swap[o.material?.name]) o.material = swap[o.material.name];
+        // brillos más contenidos para que el bloom no tape la mira
+        if (o.isMesh && GLOW_SCALE[o.material?.name] && !o.material.userData.scaled) {
+          o.material.emissiveIntensity *= GLOW_SCALE[o.material.name];
+          o.material.userData.scaled = true;
+        }
+        // placas de armadura: satinadas (el mapa de entorno no las convierte en espejos)
+        if (o.isMesh && (o.material?.name === 'ArmorMain' || o.material?.name === 'ArmorDark')) {
+          o.material.metalness = 0.45;
+          o.material.roughness = 0.5;
+        }
+        // cristales tipo espejo: menos reflejo del mapa de entorno (evita manchas blancas con bloom)
+        if (o.isMesh && (o.material?.name === 'ArmorVisor' || o.material?.name === 'CockpitGlass')) {
+          o.material.metalness = 0.55;
+          o.material.roughness = 0.32;
+          o.material.envMapIntensity = 0.35;
+        }
+      });
+    }
   }
 }
 

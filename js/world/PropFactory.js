@@ -1,5 +1,5 @@
 /**
- * PropFactory — construye por procedimiento los modelos 3D de utilería.
+ * PropFactory — construye por procedimiento los modelos 3D de ECO DE ORIÓN.
  *
  * Este mismo módulo se usa de dos formas:
  *   1. tools/build-props.mjs lo ejecuta en Node y exporta todo a
@@ -7,310 +7,587 @@
  *   2. En el navegador, AssetLibrary carga props.glb con GLTFLoader; solo si
  *      el archivo no pudiera cargarse, recurre a estas funciones como respaldo.
  *
- * Cada constructor devuelve un THREE.Group con un nombre único que luego se
- * busca dentro del GLB (SilverCore, Battery, Drone, MineCart, Beacon, Lantern,
- * Lever, Tent).
+ * Convenciones: +Z = frente, +Y = arriba, metros. Los nodos con nombre
+ * (Muzzle, Leg0, Knee0, Shield, Ramp…) se animan o consultan en tiempo real.
+ * Los materiales con nombre (RuinStone, HullPanel…) se sustituyen en tiempo
+ * de ejecución por versiones con textura.
  */
 import * as THREE from 'three';
 
 const mat = (name, params) => {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.1, ...params });
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.2, ...params });
   m.name = name;
   return m;
 };
 
-const MATERIALS = () => ({
-  silver: mat('Silver', { color: 0xe8eef5, metalness: 0.95, roughness: 0.18, emissive: 0x7fc8ff, emissiveIntensity: 0.55 }),
-  silverDark: mat('SilverDark', { color: 0x9fb3c8, metalness: 0.9, roughness: 0.3, emissive: 0x3a6f9a, emissiveIntensity: 0.35 }),
-  glowCyan: mat('GlowCyan', { color: 0xbff4ff, emissive: 0x6fe3ff, emissiveIntensity: 2.4, roughness: 0.2 }),
-  steel: mat('Steel', { color: 0x5b6470, metalness: 0.85, roughness: 0.38 }),
-  steelDark: mat('SteelDark', { color: 0x2b3038, metalness: 0.8, roughness: 0.45 }),
-  rust: mat('RustMetal', { color: 0x8a5a3a, metalness: 0.55, roughness: 0.7 }),
-  green: mat('GlowGreen', { color: 0x7dffb0, emissive: 0x2cff8a, emissiveIntensity: 2.0, roughness: 0.3 }),
-  red: mat('GlowRed', { color: 0xff6a5a, emissive: 0xff2a1a, emissiveIntensity: 2.6, roughness: 0.3 }),
-  amber: mat('GlowAmber', { color: 0xffd08a, emissive: 0xffa640, emissiveIntensity: 2.2, roughness: 0.4 }),
-  wood: mat('WoodDark', { color: 0x6b4a2e, roughness: 0.85 }),
-  canvas: mat('Canvas', { color: 0xc9b48a, roughness: 0.95, side: THREE.DoubleSide }),
-  ore: mat('Ore', { color: 0xa9b4bd, metalness: 0.7, roughness: 0.35, emissive: 0x2a4a66, emissiveIntensity: 0.3 }),
-  black: mat('Rubber', { color: 0x1b1d20, roughness: 0.9 }),
+export const MATERIALS = () => ({
+  gunmetal: mat('Gunmetal', { color: 0x3a4048, metalness: 0.85, roughness: 0.35 }),
+  gunDark: mat('GunDark', { color: 0x1c2026, metalness: 0.8, roughness: 0.45 }),
+  steel: mat('Steel', { color: 0x8b949e, metalness: 0.85, roughness: 0.3 }),
+  armor: mat('ArmorMain', { color: 0x7d8792, metalness: 0.6, roughness: 0.38 }),
+  armorDark: mat('ArmorDark', { color: 0x2a3038, metalness: 0.6, roughness: 0.45 }),
+  armorGlow: mat('ArmorGlow', { color: 0x9ffcff, emissive: 0x2fe6ff, emissiveIntensity: 2.6, roughness: 0.2 }),
+  visor: mat('ArmorVisor', { color: 0x0b2e36, emissive: 0x2fe6ff, emissiveIntensity: 1.2, metalness: 0.9, roughness: 0.08 }),
+  hull: mat('HullPanel', { color: 0xa9b0b8, metalness: 0.55, roughness: 0.45 }),
+  hullDark: mat('HullDark', { color: 0x3a3f46, metalness: 0.6, roughness: 0.5 }),
+  orange: mat('SafetyOrange', { color: 0xe8801f, metalness: 0.2, roughness: 0.5 }),
+  olive: mat('Olive', { color: 0x4d5a3c, metalness: 0.25, roughness: 0.7 }),
+  white: mat('WhitePlastic', { color: 0xe6ebee, metalness: 0.1, roughness: 0.45 }),
+  brass: mat('Brass', { color: 0xc9a24a, metalness: 0.9, roughness: 0.3 }),
+  cyan: mat('GlowCyan', { color: 0xbff9ff, emissive: 0x3fe8ff, emissiveIntensity: 2.8, roughness: 0.2 }),
+  teal: mat('GlowTeal', { color: 0x9dffe0, emissive: 0x19ffb0, emissiveIntensity: 2.4, roughness: 0.25 }),
+  magenta: mat('GlowMagenta', { color: 0xffb3f0, emissive: 0xff2bd6, emissiveIntensity: 3.0, roughness: 0.25 }),
+  violet: mat('GlowViolet', { color: 0xd7b8ff, emissive: 0x8a3dff, emissiveIntensity: 2.6, roughness: 0.25 }),
+  amber: mat('GlowAmber', { color: 0xffe0a0, emissive: 0xffa21a, emissiveIntensity: 3.0, roughness: 0.3 }),
+  red: mat('GlowRed', { color: 0xff9b90, emissive: 0xff2a1a, emissiveIntensity: 3.0, roughness: 0.3 }),
+  obsidian: mat('Obsidian', { color: 0x16141d, metalness: 0.75, roughness: 0.28 }),
+  chitin: mat('Chitin', { color: 0x231b2e, metalness: 0.5, roughness: 0.35 }),
+  crystal: mat('Crystal', { color: 0xd6c2ff, emissive: 0x7a2cff, emissiveIntensity: 1.2, metalness: 0.3, roughness: 0.15, flatShading: true }),
+  crystalHot: mat('CrystalHot', { color: 0xffd0f4, emissive: 0xff38c8, emissiveIntensity: 2.2, metalness: 0.2, roughness: 0.1, flatShading: true }),
+  shield: mat('EnergyShield', { color: 0x9ef3ff, emissive: 0x2fb8ff, emissiveIntensity: 1.6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
+  ruin: mat('RuinStone', { color: 0x5b5668, roughness: 0.9, metalness: 0.05 }),
+  rubber: mat('Rubber', { color: 0x15171a, roughness: 0.9, metalness: 0 }),
+  glass: mat('CockpitGlass', { color: 0x4fd8ff, emissive: 0x0c5a78, emissiveIntensity: 1.2, metalness: 0.9, roughness: 0.05 }),
 });
 
-function crystal(height, radius, material) {
-  const g = new THREE.OctahedronGeometry(1, 0);
-  g.scale(radius, height * 0.5, radius);
-  const m = new THREE.Mesh(g, material);
-  m.castShadow = true;
-  return m;
-}
+const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+const cyl = (rt, rb, h, m, seg = 16) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+const sph = (r, m, ws = 16, hs = 12) => new THREE.Mesh(new THREE.SphereGeometry(r, ws, hs), m);
+const group = (name) => {
+  const g = new THREE.Group();
+  if (name) g.name = name;
+  return g;
+};
+const at = (obj, x, y, z, rx = 0, ry = 0, rz = 0) => {
+  obj.position.set(x, y, z);
+  obj.rotation.set(rx, ry, rz);
+  return obj;
+};
+const crystal = (h, r, m, detail = 0) => {
+  const g = new THREE.OctahedronGeometry(1, detail);
+  g.scale(r, h * 0.5, r);
+  return new THREE.Mesh(g, m);
+};
+/** Cilindro orientado a lo largo de +Z (cañones). */
+const barrel = (r, len, m, seg = 14) => {
+  const mesh = cyl(r, r, len, m, seg);
+  mesh.rotation.x = Math.PI / 2;
+  return mesh;
+};
+const muzzle = (z) => {
+  const g = group('Muzzle');
+  g.position.set(0, 0, z);
+  return g;
+};
 
-export function buildSilverCore(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'SilverCore';
-  const main = crystal(0.9, 0.22, M.silver);
-  main.name = 'CoreMain';
-  root.add(main);
-  const angles = [0, 1.7, 3.3, 4.8];
-  angles.forEach((a, i) => {
-    const c = crystal(0.45 + (i % 2) * 0.12, 0.1, M.silverDark);
-    c.position.set(Math.cos(a) * 0.17, -0.18, Math.sin(a) * 0.17);
-    c.rotation.z = Math.cos(a) * 0.6;
-    c.rotation.x = -Math.sin(a) * 0.6;
-    root.add(c);
-  });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 8, 40), M.glowCyan);
-  ring.name = 'CoreRing';
-  ring.rotation.x = Math.PI / 2;
-  root.add(ring);
+// ======================================================================= ARMAS
+export function buildRifle(M) {
+  const root = group('WeaponRifle');
+  root.add(at(box(0.09, 0.13, 0.62, M.gunmetal), 0, 0.02, 0.18));
+  root.add(at(box(0.07, 0.05, 0.5, M.gunDark), 0, 0.105, 0.2));
+  root.add(at(barrel(0.028, 0.34, M.gunDark), 0, 0.03, 0.62));
+  root.add(at(box(0.05, 0.14, 0.07, M.gunDark), 0, -0.1, 0.02, 0.25));
+  root.add(at(box(0.06, 0.16, 0.08, M.gunmetal), 0, -0.11, 0.3, -0.12));
+  root.add(at(box(0.075, 0.1, 0.2, M.gunDark), 0, 0, -0.18));
+  root.add(at(box(0.095, 0.02, 0.32, M.cyan), 0.047, 0.03, 0.2));
+  root.add(at(box(0.05, 0.06, 0.12, M.steel), 0, 0.16, 0.12));
+  root.add(at(box(0.03, 0.03, 0.03, M.cyan), 0, 0.2, 0.12));
+  root.add(muzzle(0.8));
   return root;
 }
 
-export function buildBattery(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Battery';
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.46, 20), M.steelDark);
-  body.castShadow = true;
-  root.add(body);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.178, 0.178, 0.2, 20, 1, true), M.green);
-  root.add(band);
-  const capT = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20), M.steel);
-  capT.position.y = 0.25;
-  root.add(capT);
-  const capB = capT.clone();
-  capB.position.y = -0.25;
-  root.add(capB);
-  const term = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.07, 12), M.steel);
-  term.position.y = 0.31;
-  root.add(term);
+export function buildShotgun(M) {
+  const root = group('WeaponShotgun');
+  root.add(at(box(0.12, 0.14, 0.5, M.gunmetal), 0, 0.02, 0.12));
+  root.add(at(barrel(0.035, 0.55, M.gunDark), -0.03, 0.05, 0.5));
+  root.add(at(barrel(0.035, 0.55, M.gunDark), 0.03, 0.05, 0.5));
+  root.add(at(box(0.13, 0.06, 0.26, M.olive), 0, -0.04, 0.46));
+  root.add(at(box(0.06, 0.15, 0.08, M.gunDark), 0, -0.1, 0.0, 0.25));
+  root.add(at(box(0.09, 0.12, 0.2, M.gunDark), 0, -0.01, -0.2));
+  root.add(at(box(0.125, 0.03, 0.12, M.orange), 0, 0.1, 0.1));
+  root.add(muzzle(0.78));
   return root;
 }
 
-export function buildDrone(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Drone';
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 16), M.steelDark);
-  shell.castShadow = true;
-  root.add(shell);
-  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.045, 10, 36), M.red);
-  belt.rotation.x = Math.PI / 2;
-  belt.name = 'DroneBelt';
-  root.add(belt);
-  const eyeRim = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.08, 20), M.steel);
-  eyeRim.rotation.x = Math.PI / 2;
-  eyeRim.position.z = 0.33;
-  root.add(eyeRim);
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), M.red);
-  eye.position.z = 0.37;
-  eye.name = 'DroneEye';
-  root.add(eye);
+export function buildOrbLauncher(M) {
+  const root = group('WeaponOrb');
+  root.add(at(box(0.16, 0.16, 0.44, M.gunmetal), 0, 0.02, 0.1));
+  const coil = group();
   for (let i = 0; i < 4; i++) {
-    const a = Math.PI / 4 + (i * Math.PI) / 2;
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.07), M.steel);
-    arm.position.set(Math.cos(a) * 0.45, 0.12, Math.sin(a) * 0.45);
-    arm.rotation.y = -a;
-    root.add(arm);
-    const rotor = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.015, 18), M.black);
-    rotor.position.set(Math.cos(a) * 0.68, 0.18, Math.sin(a) * 0.68);
-    rotor.name = `Rotor${i}`;
-    root.add(rotor);
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.08, 10), M.steel);
-    hub.position.copy(rotor.position);
-    root.add(hub);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 8, 20), i % 2 ? M.cyan : M.steel);
+    ring.position.set(0, 0.03, 0.34 + i * 0.08);
+    coil.add(ring);
   }
-  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.35, 6), M.steel);
-  antenna.position.set(0, 0.48, -0.08);
-  root.add(antenna);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), M.red);
-  tip.position.set(0, 0.66, -0.08);
-  root.add(tip);
+  root.add(coil);
+  root.add(at(barrel(0.075, 0.36, M.gunDark), 0, 0.03, 0.46));
+  const core = sph(0.07, M.cyan);
+  core.position.set(0, 0.13, 0.04);
+  core.name = 'OrbCore';
+  root.add(core);
+  root.add(at(box(0.06, 0.15, 0.08, M.gunDark), 0, -0.1, 0.0, 0.25));
+  root.add(muzzle(0.66));
   return root;
 }
 
-export function buildMineCart(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'MineCart';
-  const W = 1.0;
-  const L = 1.5;
-  const H = 0.7;
-  const t = 0.06;
-  const tub = new THREE.Group();
-  tub.position.y = 0.42;
-  const bottom = new THREE.Mesh(new THREE.BoxGeometry(W - 0.1, t, L - 0.1), M.rust);
-  bottom.position.y = t / 2;
-  tub.add(bottom);
-  const sideGeo = new THREE.BoxGeometry(t, H, L);
-  const endGeo = new THREE.BoxGeometry(W, H, t);
-  const s1 = new THREE.Mesh(sideGeo, M.rust);
-  s1.position.set(W / 2, H / 2, 0);
-  s1.rotation.z = -0.12;
-  const s2 = s1.clone();
-  s2.position.x = -W / 2;
-  s2.rotation.z = 0.12;
-  const e1 = new THREE.Mesh(endGeo, M.rust);
-  e1.position.set(0, H / 2, L / 2);
-  e1.rotation.x = 0.12;
-  const e2 = e1.clone();
-  e2.position.z = -L / 2;
-  e2.rotation.x = -0.12;
-  [s1, s2, e1, e2].forEach((m) => { m.castShadow = true; m.receiveShadow = true; tub.add(m); });
-  // bordes de refuerzo
-  const rim = new THREE.Mesh(new THREE.BoxGeometry(W + 0.14, 0.06, 0.08), M.steel);
-  rim.position.set(0, H, L / 2 + 0.05);
-  tub.add(rim);
-  const rim2 = rim.clone();
-  rim2.position.z = -L / 2 - 0.05;
-  tub.add(rim2);
-  // mineral
-  for (let i = 0; i < 7; i++) {
-    const r = 0.16 + (i % 3) * 0.05;
-    const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), M.ore);
-    ore.position.set(((i * 37) % 5) / 5 - 0.4, H - 0.12 + (i % 2) * 0.08, ((i * 53) % 7) / 7 - 0.45);
-    ore.rotation.set(i, i * 2, i * 3);
-    tub.add(ore);
+export function buildRail(M) {
+  const root = group('WeaponRail');
+  root.add(at(box(0.1, 0.12, 0.8, M.gunmetal), 0, 0.02, 0.28));
+  root.add(at(box(0.03, 0.14, 0.72, M.gunDark), -0.055, 0.03, 0.62));
+  root.add(at(box(0.03, 0.14, 0.72, M.gunDark), 0.055, 0.03, 0.62));
+  root.add(at(box(0.075, 0.02, 0.68, M.violet), 0, 0.03, 0.62));
+  root.add(at(barrel(0.045, 0.24, M.steel), 0, 0.17, 0.2));
+  root.add(at(sph(0.03, M.violet), 0, 0.17, 0.33));
+  root.add(at(box(0.06, 0.15, 0.08, M.gunDark), 0, -0.1, 0.0, 0.25));
+  root.add(at(box(0.08, 0.12, 0.26, M.gunDark), 0, -0.01, -0.22));
+  root.add(muzzle(1.0));
+  return root;
+}
+
+export function buildPlasmaCaster(M) {
+  const root = group('WeaponCaster');
+  root.add(at(box(0.11, 0.12, 0.4, M.obsidian), 0, 0.0, 0.12));
+  root.add(at(crystal(0.24, 0.06, M.magenta), 0, 0.1, 0.1, Math.PI / 2));
+  root.add(at(barrel(0.04, 0.2, M.chitin), 0, 0.0, 0.4));
+  root.add(at(box(0.12, 0.02, 0.3, M.magenta), 0, -0.07, 0.14));
+  root.add(muzzle(0.52));
+  return root;
+}
+
+// ======================================================================= GRANADAS
+export function buildFragGrenade(M) {
+  const root = group('FragGrenade');
+  root.add(sph(0.11, M.olive, 14, 10));
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.108, 0.016, 6, 18), M.gunDark);
+  band.rotation.x = Math.PI / 2;
+  root.add(band);
+  root.add(at(cyl(0.035, 0.035, 0.06, M.steel), 0, 0.12, 0));
+  root.add(at(sph(0.02, M.amber), 0, 0.155, 0));
+  return root;
+}
+
+export function buildGravityGrenade(M) {
+  const root = group('GravityGrenade');
+  root.add(sph(0.11, M.gunDark, 14, 10));
+  for (const r of [0, Math.PI / 2]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.014, 6, 22), M.violet);
+    ring.rotation.set(Math.PI / 2, r, 0);
+    root.add(ring);
   }
-  root.add(tub);
-  // chasis y ruedas
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.12, L * 0.9), M.steelDark);
-  chassis.position.y = 0.36;
-  root.add(chassis);
+  root.add(at(sph(0.045, M.violet), 0, 0, 0));
+  return root;
+}
+
+// ======================================================================= PICKUPS
+export function buildEnergyCell(M) {
+  const root = group('EnergyCell');
+  const core = cyl(0.16, 0.16, 0.5, M.cyan, 6);
+  core.name = 'CellCore';
+  core.position.y = 0.35;
+  root.add(core);
+  root.add(at(cyl(0.2, 0.22, 0.08, M.gunmetal, 6), 0, 0.08, 0));
+  root.add(at(cyl(0.2, 0.2, 0.08, M.gunmetal, 6), 0, 0.64, 0));
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    root.add(at(box(0.04, 0.56, 0.04, M.steel), Math.cos(a) * 0.2, 0.36, Math.sin(a) * 0.2));
+  }
+  root.add(at(cyl(0.05, 0.05, 0.08, M.orange), 0, 0.72, 0));
+  return root;
+}
+
+export function buildMedKit(M) {
+  const root = group('MedKit');
+  root.add(at(box(0.5, 0.28, 0.34, M.white), 0, 0.14, 0));
+  root.add(at(box(0.3, 0.07, 0.345, M.teal), 0, 0.14, 0));
+  root.add(at(box(0.07, 0.24, 0.345, M.teal), 0, 0.14, 0));
+  root.add(at(box(0.2, 0.04, 0.05, M.gunDark), 0, 0.31, 0));
+  return root;
+}
+
+export function buildAmmoBox(M) {
+  const root = group('AmmoBox');
+  root.add(at(box(0.52, 0.26, 0.3, M.olive), 0, 0.13, 0));
+  root.add(at(box(0.54, 0.05, 0.32, M.gunDark), 0, 0.27, 0));
+  for (let i = 0; i < 5; i++) {
+    root.add(at(cyl(0.025, 0.025, 0.16, M.brass, 8), -0.16 + i * 0.08, 0.36, 0.04));
+    root.add(at(cyl(0.012, 0.025, 0.04, M.gunDark, 8), -0.16 + i * 0.08, 0.46, 0.04));
+  }
+  root.add(at(box(0.3, 0.06, 0.005, M.amber), 0, 0.13, 0.152));
+  return root;
+}
+
+export function buildGrenadePack(M) {
+  const root = group('GrenadePack');
+  root.add(at(box(0.44, 0.1, 0.3, M.gunDark), 0, 0.05, 0));
+  const f = buildFragGrenade(M);
+  f.position.set(-0.1, 0.2, 0);
+  root.add(f);
+  const g = buildGravityGrenade(M);
+  g.position.set(0.12, 0.2, 0);
+  root.add(g);
+  return root;
+}
+
+// ======================================================================= ARMADURA
+export function buildArmorSet(M) {
+  const root = group('ArmorSet');
+  // Visor (se coloca en el hueso de la cabeza); centrado hacia +Z
+  const visor = group('ArmorVisor');
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.625, 28, 8, Math.PI * 0.16, Math.PI * 0.68, Math.PI * 0.4, Math.PI * 0.13), M.visor);
+  visor.add(shell);
+  const band = new THREE.Mesh(new THREE.SphereGeometry(0.632, 28, 4, Math.PI * 0.1, Math.PI * 0.8, Math.PI * 0.35, Math.PI * 0.05), M.armorDark);
+  const band2 = new THREE.Mesh(new THREE.SphereGeometry(0.632, 28, 4, Math.PI * 0.1, Math.PI * 0.8, Math.PI * 0.53, Math.PI * 0.035), M.armorGlow);
+  visor.add(band2);
+  visor.add(band);
+  const ant = cyl(0.015, 0.02, 0.5, M.steel, 6);
+  ant.position.set(0.45, 0.45, -0.25);
+  visor.add(ant);
+  const antTip = sph(0.035, M.armorGlow, 8, 6);
+  antTip.position.set(0.45, 0.72, -0.25);
+  visor.add(antTip);
+  root.add(visor);
+  // Hombreras
+  for (const side of ['L', 'R']) {
+    const pad = group(`ArmorShoulder${side}`);
+    const shellPad = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), M.armor);
+    shellPad.scale.set(1, 0.7, 1.15);
+    pad.add(shellPad);
+    const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.025, 6, 20, Math.PI), M.armorGlow);
+    stripe.rotation.set(0, Math.PI / 2, 0);
+    stripe.position.y = 0.02;
+    pad.add(stripe);
+    root.add(pad);
+  }
+  // Peto
+  const chest = group('ArmorChest');
+  const plate = box(0.9, 0.55, 0.22, M.armor);
+  chest.add(plate);
+  chest.add(at(box(0.5, 0.08, 0.24, M.armorGlow), 0, 0.05, 0.02));
+  chest.add(at(box(0.92, 0.1, 0.24, M.armorDark), 0, -0.26, 0));
+  root.add(chest);
+  // Mochila con propulsores
+  const pack = group('ArmorPack');
+  pack.add(box(0.7, 0.8, 0.3, M.armorDark));
+  for (const sx of [-0.2, 0.2]) {
+    pack.add(at(cyl(0.1, 0.12, 0.5, M.gunmetal, 10), sx, -0.2, -0.14));
+    pack.add(at(cyl(0.07, 0.07, 0.04, M.armorGlow, 10), sx, -0.47, -0.14));
+  }
+  pack.add(at(box(0.4, 0.06, 0.02, M.armorGlow), 0, 0.2, -0.16));
+  root.add(pack);
+  return root;
+}
+
+// ======================================================================= ENEMIGOS
+/** Criatura de cristal de seis patas (Acechador y, escalada, la Matriarca). */
+export function buildCrawler(M, { spikes = 5, sac = false } = {}) {
+  const root = group(sac ? 'Matriarch' : 'Crawler');
+  const body = group('Body');
+  body.position.y = 0.55;
+  const abdomen = sph(0.42, M.chitin, 16, 12);
+  abdomen.scale.set(0.9, 0.7, 1.25);
+  abdomen.position.z = -0.45;
+  body.add(abdomen);
+  const thorax = sph(0.3, M.chitin, 14, 10);
+  thorax.scale.set(1, 0.75, 1.1);
+  thorax.position.z = 0.08;
+  body.add(thorax);
+  const head = group('Head');
+  head.position.set(0, 0.02, 0.42);
+  const skull = sph(0.2, M.obsidian, 14, 10);
+  skull.scale.set(1, 0.8, 1.25);
+  head.add(skull);
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 18), M.steel);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(sx * 0.46, 0.2, sz * 0.48);
-      wheel.castShadow = true;
-      root.add(wheel);
-      const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.03, 18), M.steelDark);
-      flange.rotation.z = Math.PI / 2;
-      flange.position.set(sx * 0.4, 0.2, sz * 0.48);
-      root.add(flange);
+    const eye = sph(0.045, M.magenta, 8, 6);
+    eye.position.set(sx * 0.1, 0.07, 0.17);
+    head.add(eye);
+    const mand = crystal(0.26, 0.04, M.crystal);
+    mand.position.set(sx * 0.1, -0.08, 0.26);
+    mand.rotation.set(Math.PI / 2 - 0.3, 0, sx * 0.4);
+    head.add(mand);
+  }
+  body.add(head);
+  for (let i = 0; i < spikes; i++) {
+    const t = i / Math.max(1, spikes - 1);
+    const sp = crystal(0.45 - Math.abs(t - 0.5) * 0.3, 0.07, M.crystal);
+    sp.position.set((i % 2 ? 0.12 : -0.12), 0.28 + (0.5 - Math.abs(t - 0.5)) * 0.1, -0.75 + t * 0.8);
+    sp.rotation.set(-0.35, 0, i % 2 ? -0.3 : 0.3);
+    body.add(sp);
+  }
+  if (sac) {
+    const s = sph(0.22, M.crystalHot, 16, 12);
+    s.name = 'Sac';
+    s.position.set(0, 0.2, -0.62);
+    body.add(s);
+  }
+  root.add(body);
+  // patas: Leg{i} (cadera) → Knee{i} (rodilla)
+  const zs = [0.22, -0.05, -0.32];
+  let idx = 0;
+  for (const side of [-1, 1]) {
+    for (const z of zs) {
+      const leg = group(`Leg${idx}`);
+      leg.position.set(side * 0.24, 0.58, z);
+      leg.rotation.y = side * (Math.PI / 2) - side * z * 0.8;
+      const upper = cyl(0.045, 0.06, 0.55, M.chitin, 8);
+      upper.rotation.z = Math.PI / 2;
+      upper.position.x = 0.27;
+      const pivot = group(`Hip${idx}`);
+      pivot.rotation.z = 0.55;
+      pivot.add(upper);
+      const knee = group(`Knee${idx}`);
+      knee.position.x = 0.55;
+      knee.rotation.z = -1.6;
+      const lower = crystal(0.7, 0.05, M.crystal);
+      lower.rotation.z = Math.PI / 2;
+      lower.position.x = 0.33;
+      knee.add(lower);
+      pivot.add(knee);
+      leg.add(pivot);
+      root.add(leg);
+      idx++;
     }
   }
   return root;
 }
 
-export function buildBeacon(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Beacon';
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.22, 8), M.steelDark);
-  base.position.y = -0.55;
-  base.castShadow = true;
-  root.add(base);
-  const coreMat = M.red;
-  const core = crystal(0.8, 0.22, coreMat);
-  core.name = 'BeaconCore';
-  core.position.y = -0.02;
+export function buildSentinel(M) {
+  const root = group('Sentinel');
+  const core = crystal(0.9, 0.34, M.crystal, 0);
+  core.name = 'SentinelCore';
   root.add(core);
+  const eye = sph(0.12, M.magenta, 12, 8);
+  eye.position.z = 0.26;
+  eye.name = 'SentinelEye';
+  root.add(eye);
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2;
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 1.1, 6), M.steel);
-    rod.position.set(Math.cos(a) * 0.3, 0.0, Math.sin(a) * 0.3);
-    rod.rotation.z = Math.cos(a) * 0.12;
-    rod.rotation.x = -Math.sin(a) * 0.12;
-    root.add(rod);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), coreMat);
-    bulb.position.set(Math.cos(a) * 0.36, 0.56, Math.sin(a) * 0.36);
-    root.add(bulb);
+    const fin = crystal(0.7, 0.07, M.obsidian);
+    fin.position.set(Math.cos(a) * 0.45, 0, Math.sin(a) * 0.45);
+    fin.rotation.set(0, -a, Math.PI / 2.4);
+    fin.name = `Fin${i}`;
+    root.add(fin);
   }
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.02, 6, 28), coreMat);
-  halo.rotation.x = Math.PI / 2;
-  halo.position.y = 0.2;
-  halo.name = 'BeaconHalo';
-  root.add(halo);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.03, 6, 30), M.violet);
+  ring.rotation.x = Math.PI / 2;
+  ring.name = 'SentinelRing';
+  root.add(ring);
   return root;
 }
 
-export function buildLantern(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Lantern';
-  const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.2, 0.16), M.wood);
-  post.position.y = 1.6;
-  post.castShadow = true;
-  root.add(post);
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.1), M.wood);
-  arm.position.set(0.4, 3.05, 0);
-  root.add(arm);
-  const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.34, 6, 1, true), M.steelDark);
-  cage.position.set(0.78, 2.72, 0);
-  root.add(cage);
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), M.amber);
-  bulb.position.set(0.78, 2.72, 0);
-  bulb.name = 'LanternBulb';
-  root.add(bulb);
-  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.14, 6), M.steelDark);
-  cap.position.set(0.78, 2.95, 0);
-  root.add(cap);
-  return root;
-}
-
-export function buildLever(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Lever';
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.5), M.steelDark);
-  base.position.y = 0.45;
-  base.castShadow = true;
+export function buildBastion(M) {
+  const root = group('Bastion');
+  const core = crystal(1.6, 0.6, M.obsidian, 0);
+  core.position.y = 0.2;
+  root.add(core);
+  const heart = crystal(0.7, 0.26, M.crystalHot, 0);
+  heart.name = 'BastionCore';
+  heart.position.set(0, 0.25, 0.35);
+  root.add(heart);
+  for (const sx of [-1, 1]) {
+    const plate = box(0.18, 1.3, 0.9, M.chitin);
+    plate.position.set(sx * 0.62, 0.25, 0);
+    plate.rotation.z = sx * 0.2;
+    root.add(plate);
+    const cannon = group(`Cannon${sx < 0 ? 'L' : 'R'}`);
+    cannon.position.set(sx * 0.95, 0.35, 0.1);
+    cannon.add(barrel(0.12, 0.7, M.obsidian, 10));
+    const glow = sph(0.09, M.magenta, 10, 8);
+    glow.position.z = 0.38;
+    cannon.add(glow);
+    root.add(cannon);
+  }
+  const shield = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 2.4, 24, 1, true, -0.75, 1.5), M.shield);
+  shield.name = 'BastionShield';
+  shield.position.set(0, 0.2, -0.5);
+  root.add(shield);
+  const base = crystal(0.9, 0.35, M.crystal);
+  base.position.y = -0.85;
+  base.rotation.x = Math.PI;
   root.add(base);
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.02), M.amber);
-  panel.position.set(0, 0.62, 0.26);
-  panel.name = 'LeverPanel';
-  root.add(panel);
-  const pivot = new THREE.Group();
-  pivot.name = 'Handle';
-  pivot.position.set(0, 0.92, 0);
-  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.7, 8), M.steel);
-  stick.position.y = 0.35;
-  pivot.add(stick);
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), M.red);
-  knob.position.y = 0.72;
-  knob.name = 'LeverKnob';
-  pivot.add(knob);
-  pivot.rotation.x = -0.6;
-  root.add(pivot);
   return root;
 }
 
-export function buildTent(M = MATERIALS()) {
-  const root = new THREE.Group();
-  root.name = 'Tent';
-  const shape = new THREE.Shape();
-  shape.moveTo(-1.4, 0);
-  shape.lineTo(0, 1.8);
-  shape.lineTo(1.4, 0);
-  shape.lineTo(-1.4, 0);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: 2.6, bevelEnabled: false });
-  geo.translate(0, 0, -1.3);
-  const cloth = new THREE.Mesh(geo, M.canvas);
-  cloth.castShadow = true;
-  cloth.receiveShadow = true;
-  root.add(cloth);
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.0, 6), M.wood);
-  pole.rotation.x = Math.PI / 2;
-  pole.position.y = 1.8;
-  root.add(pole);
+export function buildEcoCore(M) {
+  const root = group('EcoCore');
+  const outer = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), M.crystal);
+  outer.name = 'EcoShell';
+  root.add(outer);
+  const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 1), M.crystalHot);
+  inner.name = 'EcoInner';
+  root.add(inner);
+  const eye = sph(0.7, M.magenta, 20, 14);
+  eye.name = 'EcoEye';
+  eye.position.z = 1.1;
+  root.add(eye);
+  const shards = group('EcoShards');
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const s = crystal(1.8, 0.28, M.crystal);
+    s.position.set(Math.cos(a) * 4.6, Math.sin(i * 1.7) * 0.8, Math.sin(a) * 4.6);
+    s.rotation.set(0.3, -a, 0.2);
+    shards.add(s);
+  }
+  root.add(shards);
+  const spine = crystal(3.4, 0.35, M.obsidian);
+  spine.position.y = -3.4;
+  root.add(spine);
+  return root;
+}
+
+// ======================================================================= ESCENARIO
+export function buildDropship(M) {
+  const root = group('Dropship');
+  const hull = group('Hull');
+  hull.add(at(box(3.2, 2.2, 8.5, M.hull), 0, 2.2, 0));
+  hull.add(at(box(2.6, 1.6, 3.0, M.hull), 0, 2.4, 5.2, 0.12));
+  hull.add(at(box(2.0, 0.9, 1.6, M.glass), 0, 2.95, 6.2, 0.35));
+  hull.add(at(box(3.24, 0.3, 8.6, M.orange), 0, 3.0, 0));
+  hull.add(at(box(3.3, 0.6, 7.6, M.hullDark), 0, 1.2, -0.3));
+  // alas y motores
+  for (const sx of [-1, 1]) {
+    hull.add(at(box(4.4, 0.25, 2.6, M.hull), sx * 3.6, 2.6, -1.0, 0, 0, sx * -0.08));
+    for (const z of [0.2, -2.2]) {
+      const eng = group(`Engine${sx < 0 ? 'L' : 'R'}${z > 0 ? 'F' : 'B'}`);
+      eng.position.set(sx * 4.9, 2.45, z);
+      eng.add(cyl(0.55, 0.65, 1.4, M.hullDark, 14));
+      const glow = cyl(0.42, 0.42, 0.08, M.cyan, 14);
+      glow.position.y = -0.72;
+      glow.name = 'EngineGlow';
+      eng.add(glow);
+      hull.add(eng);
+    }
+  }
+  hull.add(at(box(0.25, 1.6, 2.0, M.hullDark), 0, 3.9, -3.4));
+  root.add(hull);
+  // rampa trasera (bisagra en la parte baja de la popa)
+  const pivot = group('RampPivot');
+  pivot.position.set(0, 1.05, -4.25);
+  const ramp = box(2.4, 0.18, 3.2, M.hullDark);
+  ramp.position.set(0, 0, -1.6);
+  ramp.name = 'Ramp';
+  pivot.add(ramp);
+  pivot.add(at(box(2.2, 0.02, 2.8, M.orange), 0, 0.1, -1.6));
+  pivot.rotation.x = 0.0;
+  root.add(pivot);
+  // patas de aterrizaje
+  for (const [x, z] of [[-1.3, 3], [1.3, 3], [-1.3, -3], [1.3, -3]]) {
+    root.add(at(cyl(0.12, 0.12, 1.2, M.steel, 8), x, 0.6, z));
+    root.add(at(box(0.5, 0.1, 0.7, M.gunDark), x, 0.05, z));
+  }
+  return root;
+}
+
+export function buildBeacon(M) {
+  const root = group('RescueBeacon');
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const leg = cyl(0.05, 0.07, 1.8, M.steel, 8);
+    leg.position.set(Math.cos(a) * 0.55, 0.8, Math.sin(a) * 0.55);
+    leg.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35);
+    root.add(leg);
+  }
+  root.add(at(box(0.6, 0.5, 0.6, M.hullDark), 0, 1.6, 0));
+  root.add(at(box(0.62, 0.12, 0.62, M.orange), 0, 1.75, 0));
+  root.add(at(cyl(0.04, 0.04, 1.6, M.steel, 8), 0, 2.6, 0));
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.35), M.hull);
+  dish.position.set(0, 2.2, 0.2);
+  dish.rotation.x = -1.1;
+  root.add(dish);
+  const light = sph(0.12, M.red, 12, 8);
+  light.name = 'BeaconLight';
+  light.position.y = 3.45;
+  root.add(light);
+  const panel = box(0.4, 0.3, 0.02, M.amber);
+  panel.name = 'BeaconPanel';
+  panel.position.set(0, 1.6, 0.31);
+  root.add(panel);
+  return root;
+}
+
+export function buildTempleGate(M) {
+  const root = group('TempleGate');
+  root.add(at(box(2.2, 11, 3.2, M.ruin), -6.4, 5.5, 0));
+  root.add(at(box(2.2, 11, 3.2, M.ruin), 6.4, 5.5, 0));
+  root.add(at(box(15, 2.4, 3.6, M.ruin), 0, 11.8, 0));
+  root.add(at(crystal(3.2, 0.9, M.crystalHot), 0, 14.2, 0.3));
+  for (const [x, name] of [[-2.65, 'DoorL'], [2.65, 'DoorR']]) {
+    const door = group(name);
+    door.position.set(x, 5.25, 0);
+    door.add(box(5.3, 10.5, 0.9, M.obsidian));
+    const seam = box(0.2, 10.5, 0.95, M.violet);
+    seam.position.x = x < 0 ? 2.55 : -2.55;
+    door.add(seam);
+    for (let k = 0; k < 4; k++) {
+      const g = box(3.4, 0.14, 0.95, M.violet);
+      g.position.set(0, -3.6 + k * 2.4, 0);
+      door.add(g);
+    }
+    root.add(door);
+  }
+  return root;
+}
+
+export function buildPylonCrystal(M) {
+  const root = group('PylonCrystal');
+  root.add(at(cyl(0.45, 0.55, 0.3, M.obsidian, 8), 0, -0.55, 0));
+  const c = crystal(1.3, 0.35, M.crystalHot);
+  c.name = 'PylonCore';
+  root.add(c);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const s = crystal(0.7, 0.1, M.crystal);
+    s.position.set(Math.cos(a) * 0.35, -0.2, Math.sin(a) * 0.35);
+    s.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
+    root.add(s);
+  }
+  return root;
+}
+
+export function buildLumenPost(M) {
+  const root = group('LumenPost');
+  root.add(at(cyl(0.12, 0.18, 2.6, M.obsidian, 6), 0, 1.3, 0));
+  const c = crystal(0.7, 0.18, M.teal);
+  c.name = 'LumenCrystal';
+  c.position.y = 2.95;
+  root.add(c);
   return root;
 }
 
 export const PROP_BUILDERS = {
-  SilverCore: buildSilverCore,
-  Battery: buildBattery,
-  Drone: buildDrone,
-  MineCart: buildMineCart,
-  Beacon: buildBeacon,
-  Lantern: buildLantern,
-  Lever: buildLever,
-  Tent: buildTent,
+  WeaponRifle: buildRifle,
+  WeaponShotgun: buildShotgun,
+  WeaponOrb: buildOrbLauncher,
+  WeaponRail: buildRail,
+  WeaponCaster: buildPlasmaCaster,
+  FragGrenade: buildFragGrenade,
+  GravityGrenade: buildGravityGrenade,
+  EnergyCell: buildEnergyCell,
+  MedKit: buildMedKit,
+  AmmoBox: buildAmmoBox,
+  GrenadePack: buildGrenadePack,
+  ArmorSet: buildArmorSet,
+  Crawler: (M) => buildCrawler(M),
+  Matriarch: (M) => buildCrawler(M, { spikes: 9, sac: true }),
+  Sentinel: buildSentinel,
+  Bastion: buildBastion,
+  EcoCore: buildEcoCore,
+  Dropship: buildDropship,
+  RescueBeacon: buildBeacon,
+  TempleGate: buildTempleGate,
+  PylonCrystal: buildPylonCrystal,
+  LumenPost: buildLumenPost,
 };
 
 /** Construye todos los props compartiendo materiales (útil para exportar). */
 export function buildAllProps() {
   const M = MATERIALS();
   const scene = new THREE.Scene();
-  scene.name = 'VetaAirosaProps';
+  scene.name = 'EcoDeOrionProps';
   let x = 0;
   for (const [name, fn] of Object.entries(PROP_BUILDERS)) {
     const obj = fn(M);
     obj.name = name;
-    obj.position.x = x; // separados solo para visualizarlos en un visor glTF
-    x += 3;
+    obj.position.x = x; // separados solo para verlos en un visor glTF
+    x += 6;
     scene.add(obj);
   }
   return scene;
