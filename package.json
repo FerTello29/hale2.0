@@ -6,10 +6,16 @@
   "type": "module",
   "scripts": {
     "start": "npx --yes http-server . -p 8080 -c-1",
-    "props": "cd tools && npm install --no-save three@0.170.0 && node build-props.mjs",
+    "props": "npm install --no-save three@0.170.0 && node tools/build-props.mjs",
     "textures": "python tools/generate_textures.py"
   },
-  "keywords": ["threejs", "rapier", "videojuego", "tercera-persona", "github-pages"],
+  "keywords": [
+    "threejs",
+    "rapier",
+    "videojuego",
+    "tercera-persona",
+    "github-pages"
+  ],
   "author": "Fernando Rosales Tello",
   "license": "MIT"
 }
