@@ -1,10 +1,10 @@
 /**
- * config.js — constantes globales, grupos de colisión y presets de dificultad.
- * Centralizar aquí los números "mágicos" facilita ajustar el balance del juego.
+ * config.js — constantes globales: grupos de colisión, armas, granadas,
+ * dificultades y puntuación. Centralizar aquí los números facilita el balance.
  */
 
-export const GAME_TITLE = 'VETA AIROSA';
-export const VERSION = '1.0.0';
+export const GAME_TITLE = 'ECO DE ORIÓN';
+export const VERSION = '2.0.0';
 
 /** Rutas de recursos (relativas a index.html, compatibles con GitHub Pages). */
 export const PATHS = {
@@ -22,135 +22,115 @@ export const G = {
   WORLD: 1 << 0,
   PLAYER: 1 << 1,
   PROP: 1 << 2,
-  ORB: 1 << 3,
-  BOLT: 1 << 4,
-  DRONE: 1 << 5,
+  ORB: 1 << 3, // proyectiles del jugador (orbes, granadas)
+  BOLT: 1 << 4, // proyectiles enemigos
+  DRONE: 1 << 5, // enemigos voladores (cinemáticos)
   PICKUP: 1 << 6,
   DEBRIS: 1 << 7,
+  ENEMY: 1 << 8, // enemigos terrestres (dinámicos)
+  BOSS: 1 << 9,
 };
 export const groups = (membership, filter) => ((membership & 0xffff) << 16) | (filter & 0xffff);
 
+const ALL_SOLID = G.WORLD | G.PROP | G.DRONE | G.ENEMY | G.BOSS;
+
 export const COLLISION = {
   world: groups(G.WORLD, 0xffff),
-  player: groups(G.PLAYER, G.WORLD | G.PROP | G.DRONE | G.BOLT | G.PICKUP),
-  playerQuery: groups(G.PLAYER, G.WORLD | G.PROP | G.DRONE),
-  prop: groups(G.PROP, G.WORLD | G.PLAYER | G.PROP | G.ORB | G.BOLT | G.DRONE | G.DEBRIS),
-  orb: groups(G.ORB, G.WORLD | G.PROP | G.DRONE),
+  player: groups(G.PLAYER, G.WORLD | G.PROP | G.DRONE | G.BOLT | G.PICKUP | G.ENEMY | G.BOSS),
+  playerQuery: groups(G.PLAYER, G.WORLD | G.PROP | G.DRONE | G.ENEMY | G.BOSS),
+  prop: groups(G.PROP, G.WORLD | G.PLAYER | G.PROP | G.ORB | G.BOLT | G.DRONE | G.DEBRIS | G.ENEMY | G.BOSS),
+  orb: groups(G.ORB, ALL_SOLID),
   bolt: groups(G.BOLT, G.WORLD | G.PROP | G.PLAYER),
   drone: groups(G.DRONE, G.WORLD | G.PLAYER | G.PROP | G.ORB),
+  enemy: groups(G.ENEMY, G.WORLD | G.PLAYER | G.PROP | G.ORB | G.ENEMY | G.BOSS),
+  boss: groups(G.BOSS, G.WORLD | G.PLAYER | G.PROP | G.ORB | G.ENEMY),
   pickup: groups(G.PICKUP, G.PLAYER),
   debris: groups(G.DEBRIS, G.WORLD | G.PROP),
   cameraQuery: groups(0xffff, G.WORLD),
-  aimQuery: groups(0xffff, G.WORLD | G.PROP | G.DRONE),
-  spawnQuery: groups(0xffff, G.WORLD | G.PROP | G.PICKUP | G.DRONE),
+  aimQuery: groups(0xffff, ALL_SOLID),
+  bulletQuery: groups(0xffff, ALL_SOLID),
+  enemySight: groups(0xffff, G.WORLD),
+  spawnQuery: groups(0xffff, G.WORLD | G.PROP | G.PICKUP | G.DRONE | G.ENEMY | G.BOSS),
 };
 
-/** Parámetros del personaje y la jugabilidad. */
+/** Parámetros del personaje. */
 export const PLAYER = {
   modelHeight: 1.8,
   capsuleHalfHeight: 0.55,
   capsuleRadius: 0.35,
-  walkSpeed: 3.4,
-  runSpeed: 6.8,
+  walkSpeed: 3.6,
+  runSpeed: 7.0,
+  aimSpeedFactor: 0.62,
   airControl: 0.35,
   acceleration: 14,
-  jumpSpeed: 6.4,
-  maxBattery: 100,
-  maxEnergy: 100,
+  jumpSpeed: 6.6,
+  maxHealth: 100,
+  maxShield: 75,
+  shieldDelay: 3.5,
+  shieldRegen: 30,
   maxStamina: 100,
   staminaDrain: 14,
   staminaRegen: 18,
-  energyRegen: 11,
-  fallLimitY: -7,
-  fallDamage: 20,
-  invulnerableTime: 0.45,
-  characterMass: 70,
+  fallLimitY: -9,
+  fallDamage: 25,
+  characterMass: 80,
 };
 
-export const COMBAT = {
-  orbCost: 12,
-  orbRadius: 0.2,
-  orbMass: 3,
-  orbMinSpeedFactor: 0.55,
-  chargeTime: 0.9,
-  orbLifetime: 6,
-  orbBurstRadius: 2.4,
-  orbBurstDeltaV: 7.5,
-  punchRange: 1.6,
-  punchRadius: 1.0,
-  punchDeltaV: 9,
-  punchCooldown: 0.55,
-  pulseCost: 35,
-  pulseRadius: 7.5,
-  pulseDeltaV: 13,
-  pulseCooldown: 6,
-  barrelRadius: 7.5,
-  barrelDeltaV: 16,
-  barrelPlayerDamage: 38,
+/** Arsenal. Los valores de daño se multiplican por la dificultad solo para enemigos. */
+export const WEAPONS = {
+  rifle: {
+    id: 'rifle', slot: 1, name: 'Rifle de pulsos RP-12', short: 'RIFLE', icon: 'rifle', prop: 'WeaponRifle',
+    mode: 'auto', fireRate: 9.5, damage: 13, headMult: 1.8, pellets: 1, mag: 36, reserve: 216, maxReserve: 324,
+    reload: 1.7, spread: 0.018, aimSpread: 0.005, range: 140, impulse: 2.4, recoil: 0.01, tracer: 0x7fe8ff, sound: 'rifle',
+  },
+  shotgun: {
+    id: 'shotgun', slot: 2, name: 'Dispersor DS-4', short: 'DISPERSOR', icon: 'shotgun', prop: 'WeaponShotgun',
+    mode: 'semi', fireRate: 1.3, damage: 11, headMult: 1.3, pellets: 10, mag: 6, reserve: 30, maxReserve: 48,
+    reload: 2.3, spread: 0.08, aimSpread: 0.055, range: 38, impulse: 3.4, recoil: 0.055, tracer: 0xffc27a, sound: 'shotgun',
+  },
+  orb: {
+    id: 'orb', slot: 3, name: 'Lanzaorbes LO-3', short: 'LANZAORBES', icon: 'orb', prop: 'WeaponOrb',
+    mode: 'charge', fireRate: 1.5, damage: 95, radius: 4.2, mag: 5, reserve: 15, maxReserve: 25,
+    reload: 2.1, chargeTime: 0.85, speed: 26, recoil: 0.04, sound: 'orbLaunch',
+  },
+  rail: {
+    id: 'rail', slot: 4, name: 'Rifle de riel RR-1', short: 'RIEL', icon: 'rail', prop: 'WeaponRail',
+    mode: 'semi', fireRate: 0.85, damage: 160, headMult: 2.0, pellets: 1, pierce: 4, mag: 4, reserve: 12, maxReserve: 20,
+    reload: 2.6, spread: 0.03, aimSpread: 0.0, range: 260, impulse: 16, recoil: 0.09, tracer: 0xc49bff, sound: 'rail', scope: true,
+  },
+};
+export const WEAPON_ORDER = ['rifle', 'shotgun', 'orb', 'rail'];
+
+export const GRENADES = {
+  frag: { id: 'frag', name: 'Fragmentación', max: 5, start: 3, fuse: 2.1, radius: 6.8, damage: 140, deltaV: 15, prop: 'FragGrenade' },
+  gravity: { id: 'gravity', name: 'Singularidad', max: 3, start: 1, fuse: 1.0, radius: 11, duration: 2.8, pull: 22, damage: 110, prop: 'GravityGrenade' },
 };
 
-/** Presets de dificultad: cambian tiempo, núcleos, drones y daño. */
+export const ABILITIES = {
+  melee: { damage: 55, range: 1.8, cooldown: 0.75, deltaV: 10 },
+  pulse: { damage: 30, radius: 7.5, cooldown: 9, deltaV: 13 },
+};
+
+/** Presets de dificultad. */
 export const DIFFICULTIES = {
-  explorador: {
-    id: 'explorador',
-    label: 'Explorador',
-    time: 480,
-    cores: 8,
-    drones: 2,
-    droneFireInterval: 3.4,
-    droneRespawn: 40,
-    damageMult: 0.6,
-    interferenceDrain: 2.5,
-    rockfallMult: 0.6,
-  },
-  minero: {
-    id: 'minero',
-    label: 'Minero',
-    time: 390,
-    cores: 10,
-    drones: 4,
-    droneFireInterval: 2.5,
-    droneRespawn: 30,
-    damageMult: 1.0,
-    interferenceDrain: 4,
-    rockfallMult: 1.0,
-  },
-  leyenda: {
-    id: 'leyenda',
-    label: 'Leyenda',
-    time: 300,
-    cores: 12,
-    drones: 6,
-    droneFireInterval: 1.8,
-    droneRespawn: 22,
-    damageMult: 1.4,
-    interferenceDrain: 6,
-    rockfallMult: 1.5,
-  },
+  recluta: { id: 'recluta', label: 'Recluta', enemyHp: 0.8, enemyDmg: 0.55, count: 0.8, bossHp: 0.8, accuracy: 0.7, pickups: 1.3 },
+  veterano: { id: 'veterano', label: 'Veterano', enemyHp: 1.0, enemyDmg: 1.0, count: 1.0, bossHp: 1.0, accuracy: 1.0, pickups: 1.0 },
+  leyenda: { id: 'leyenda', label: 'Leyenda', enemyHp: 1.3, enemyDmg: 1.5, count: 1.25, bossHp: 1.25, accuracy: 1.25, pickups: 0.8 },
 };
-
-/** Frecuencia base (segundos entre derrumbes) según el ajuste del usuario. */
-export const ROCKFALL_INTERVALS = { off: Infinity, low: 26, normal: 16, high: 9 };
 
 export const SCORE = {
-  core: 250,
-  goldCore: 400,
-  tower: 600,
-  drone: 150,
-  supplyCrate: 50,
-  barrel: 25,
-  batteryOverflow: 40,
-  timeBonusPerSecond: 8,
-  batteryBonusPerPoint: 4,
+  espectro: 100,
+  acechador: 60,
+  centinela: 80,
+  bastion: 250,
+  headshot: 50,
+  cell: 200,
+  pylon: 500,
+  boss: 2500,
+  levelBonus: 1500,
+  healthBonusPerPoint: 5,
+  timeBonusMax: 3000,
 };
-
-/** Rango final según el puntaje obtenido. */
-export const RANKS = [
-  { min: 9000, rank: 'S', label: 'Leyenda de la veta' },
-  { min: 7000, rank: 'A', label: 'Capataz honorario' },
-  { min: 5000, rank: 'B', label: 'Minero experto' },
-  { min: 0, rank: 'C', label: 'Aprendiz de socavón' },
-];
 
 export const PHYSICS = {
   fixedStep: 1 / 60,

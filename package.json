@@ -1,7 +1,7 @@
 {
-  "name": "veta-airosa",
-  "version": "1.0.0",
-  "description": "Videojuego 3D en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5.",
+  "name": "eco-de-orion",
+  "version": "2.0.0",
+  "description": "ECO DE ORIÓN — campaña de acción en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,8 @@
     "rapier",
     "videojuego",
     "tercera-persona",
-    "github-pages"
+    "github-pages",
+    "webgl"
   ],
   "author": "Fernando Rosales Tello",
   "license": "MIT"

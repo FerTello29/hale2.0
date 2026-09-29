@@ -17,3 +17,4 @@ desktop.ini
 # Python
 __pycache__/
 *.pyc
+_preview*

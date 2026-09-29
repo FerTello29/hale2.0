@@ -2,7 +2,7 @@
  * Input — teclado, mouse (pointer lock) y controles táctiles virtuales.
  *
  * Expone "acciones" en lugar de teclas para que el resto del juego no dependa
- * de un dispositivo concreto: down('run'), pressed('jump'), released('throw').
+ * de un dispositivo concreto: down('run'), pressed('jump'), released('fire').
  */
 const KEYMAP = {
   forward: ['KeyW', 'ArrowUp'],
@@ -11,13 +11,22 @@ const KEYMAP = {
   right: ['KeyD', 'ArrowRight'],
   run: ['ShiftLeft', 'ShiftRight'],
   jump: ['Space'],
-  punch: ['KeyF'],
+  fire: ['Mouse0'],
+  aim: ['Mouse2'],
+  reload: ['KeyR'],
+  melee: ['KeyF'],
   pulse: ['KeyQ'],
+  grenade: ['KeyG'],
+  grenadeSwitch: ['KeyT'],
   interact: ['KeyE'],
+  weapon1: ['Digit1', 'Numpad1'],
+  weapon2: ['Digit2', 'Numpad2'],
+  weapon3: ['Digit3', 'Numpad3'],
+  weapon4: ['Digit4', 'Numpad4'],
+  nextWeapon: [],
+  prevWeapon: [],
   pause: ['Escape', 'KeyP'],
   help: ['KeyH'],
-  throw: ['Mouse0'],
-  aim: ['Mouse2'],
 };
 
 export class Input {

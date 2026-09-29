@@ -33,6 +33,11 @@ export class Entity {
    */
   hit(/* info */) {}
 
+  /** Daño recibido (lo implementan las entidades con vida). Devuelve el daño real. */
+  takeDamage(/* amount, info */) {
+    return 0;
+  }
+
   get position() {
     return this.object3d ? this.object3d.position : null;
   }

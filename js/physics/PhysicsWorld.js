@@ -177,6 +177,37 @@ export class PhysicsWorld {
     };
   }
 
+  /**
+   * Raycast que atraviesa hasta `maxHits` objetos (rifle de riel). Se detiene
+   * al tocar geometría estática del mundo.
+   */
+  raycastPiercing(origin, dir, maxDist, { groups, excludeCollider, maxHits = 4 } = {}) {
+    const hits = [];
+    const skip = new Set();
+    if (excludeCollider) skip.add(excludeCollider.handle);
+    let travelled = 0;
+    const o = { x: origin.x, y: origin.y, z: origin.z };
+    for (let i = 0; i < maxHits + 1; i++) {
+      const hit = this.raycast(o, dir, maxDist - travelled, {
+        groups,
+        predicate: (c) => !skip.has(c.handle),
+      });
+      if (!hit) break;
+      hits.push(hit);
+      if (!hit.entity || hit.entity.type === 'world' || hits.length >= maxHits) break;
+      if (hit.collider) {
+        const body = hit.collider.parent();
+        if (body) for (let k = 0; k < body.numColliders(); k++) skip.add(body.collider(k).handle);
+        else skip.add(hit.collider.handle);
+      }
+      travelled += hit.distance;
+      o.x = hit.point.x;
+      o.y = hit.point.y;
+      o.z = hit.point.z;
+    }
+    return hits;
+  }
+
   /** Lista de colliders que intersectan una esfera. */
   overlapSphere(center, radius, { groups, includeSensors = false } = {}) {
     const out = [];

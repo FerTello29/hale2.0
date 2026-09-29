@@ -1,5 +1,5 @@
 /**
- * Settings — parámetros configurables desde la interfaz.
+ * Settings — parámetros configurables desde la interfaz y progreso guardado.
  *
  * Cada cambio se notifica a los sistemas interesados (física, cámara, audio,
  * render) para que el efecto sea inmediato. Se guardan en localStorage cuando
@@ -7,33 +7,50 @@
  */
 import { PHYSICS } from '../config.js';
 
-const STORAGE_KEY = 'veta-airosa:settings:v1';
+const STORAGE_KEY = 'eco-orion:settings:v1';
+const PROGRESS_KEY = 'eco-orion:progress:v1';
 
 export const DEFAULT_SETTINGS = {
-  difficulty: 'minero',
+  difficulty: 'veterano',
   gravity: PHYSICS.defaultGravity,
-  throwPower: 24,
   sensitivity: 1.0,
   invertY: false,
-  fov: 68,
-  rockfall: 'normal',
+  fov: 70,
   shadows: true,
   bloom: true,
   showTrajectory: true,
-  volume: 0.7,
+  damageNumbers: true,
+  volume: 0.75,
+  music: 0.55,
 };
 
 export const SETTING_LIMITS = {
   gravity: { min: 2, max: 25, step: 0.1 },
-  throwPower: { min: 10, max: 40, step: 1 },
   sensitivity: { min: 0.2, max: 3, step: 0.05 },
-  fov: { min: 50, max: 90, step: 1 },
+  fov: { min: 55, max: 95, step: 1 },
   volume: { min: 0, max: 1, step: 0.05 },
+  music: { min: 0, max: 1, step: 0.05 },
+};
+
+const safeRead = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const safeWrite = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* almacenamiento no disponible: se mantiene en memoria */
+  }
 };
 
 export class Settings {
   constructor() {
-    this.values = { ...DEFAULT_SETTINGS, ...this.#load() };
+    this.values = { ...DEFAULT_SETTINGS, ...safeRead(STORAGE_KEY, {}) };
     this.listeners = new Set();
   }
 
@@ -47,7 +64,7 @@ export class Settings {
     if (lim) value = Math.min(lim.max, Math.max(lim.min, Number(value)));
     if (this.values[key] === value) return;
     this.values[key] = value;
-    this.#save();
+    safeWrite(STORAGE_KEY, this.values);
     for (const fn of this.listeners) fn(key, value, this.values);
   }
 
@@ -59,48 +76,39 @@ export class Settings {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
-
-  #load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  }
-
-  #save() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.values));
-    } catch {
-      /* almacenamiento no disponible: se mantienen en memoria */
-    }
-  }
 }
 
-/** Récord local (mejor puntaje por dificultad). */
-export const BestScores = {
-  key: 'veta-airosa:best:v1',
-  get(difficulty) {
-    try {
-      const all = JSON.parse(localStorage.getItem(this.key) || '{}');
-      return all[difficulty] || 0;
-    } catch {
-      return 0;
+/** Progreso de campaña: niveles desbloqueados y mejores puntajes. */
+export const Progress = {
+  data: safeRead(PROGRESS_KEY, { unlocked: 1, best: {}, completed: false }),
+  save() {
+    safeWrite(PROGRESS_KEY, this.data);
+  },
+  unlocked() {
+    return this.data.unlocked || 1;
+  },
+  unlock(level) {
+    if (level > this.unlocked()) {
+      this.data.unlocked = Math.min(3, level);
+      this.save();
     }
   },
-  submit(difficulty, score) {
-    try {
-      const all = JSON.parse(localStorage.getItem(this.key) || '{}');
-      const prev = all[difficulty] || 0;
-      if (score > prev) {
-        all[difficulty] = score;
-        localStorage.setItem(this.key, JSON.stringify(all));
-        return true;
-      }
-    } catch {
-      /* sin almacenamiento */
+  best(level, difficulty) {
+    return this.data.best?.[`${level}:${difficulty}`] || 0;
+  },
+  submit(level, difficulty, score) {
+    const key = `${level}:${difficulty}`;
+    this.data.best = this.data.best || {};
+    const prev = this.data.best[key] || 0;
+    if (score > prev) {
+      this.data.best[key] = score;
+      this.save();
+      return true;
     }
     return false;
+  },
+  markCompleted() {
+    this.data.completed = true;
+    this.save();
   },
 };
