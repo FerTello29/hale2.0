@@ -1,7 +1,7 @@
 /**
  * main.js — punto de entrada. Crea el juego y maneja errores de arranque.
  *
- * VETA AIROSA · Operación Núcleo de Plata
+ * ECO DE ORIÓN · campaña de acción en tercera persona
  * Three.js (CDN + import map) · Rapier 3D · Bootstrap 5
  */
 import { Game } from './core/Game.js';

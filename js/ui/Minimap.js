@@ -1,12 +1,16 @@
 /**
- * Minimap — radar con vista cenital (norte arriba). El fondo se pinta una sola
- * vez a partir de la función de altura del terreno; los marcadores se
+ * Minimap — radar cenital (norte arriba). El fondo se hornea una vez por
+ * nivel a partir de la función de altura (abismos, agua, pendientes); los
+ * marcadores (objetivo, celdas, pilones, jefe, enemigos alertados, nave) se
  * redibujan ~20 veces por segundo.
  */
-import { heightAt, CREVASSE_DEPTH } from '../world/Terrain.js';
-import { INTERFERENCE_RADIUS } from '../entities/Tower.js';
+import { heightAt, isVoid } from '../world/TerrainField.js';
 
-const RANGE = 58; // metros desde el centro hasta el borde del mapa
+const PALETTES = {
+  1: { low: [22, 60, 48], high: [70, 120, 84], water: [20, 70, 90], wall: [40, 56, 50] },
+  2: { low: [48, 40, 72], high: [110, 96, 140], water: [20, 30, 60], wall: [56, 48, 70] },
+  3: { low: [80, 40, 72], high: [150, 90, 140], water: [20, 10, 20], wall: [60, 30, 50] },
+};
 
 export class Minimap {
   constructor(game, canvas) {
@@ -17,67 +21,69 @@ export class Minimap {
     this.bg = null;
     this.timer = 0;
     this.t = 0;
+    this.bounds = { cx: 0, cz: 0, range: 58 };
+  }
+
+  /** Recalcula el fondo para el nivel cargado. */
+  rebuild(level) {
+    this.level = level;
+    this.bounds = level.mapBounds ?? (level.index === 3 ? { cx: 0, cz: 18, range: 56 } : { cx: 0, cz: 0, range: 60 });
+    this.bg = null;
   }
 
   toMap(x, z) {
+    const { cx, cz, range } = this.bounds;
     const s = this.size;
-    return [((x + RANGE) / (2 * RANGE)) * s, ((z + RANGE) / (2 * RANGE)) * s];
+    return [((x - cx + range) / (2 * range)) * s, ((z - cz + range) / (2 * range)) * s];
   }
 
-  buildBackground() {
+  #buildBackground() {
     const s = this.size;
+    const { cx, cz, range } = this.bounds;
+    const pal = PALETTES[this.level?.index ?? 1];
     const off = document.createElement('canvas');
     off.width = off.height = s;
     const g = off.getContext('2d');
     const img = g.createImageData(s, s);
     for (let py = 0; py < s; py++) {
       for (let px = 0; px < s; px++) {
-        const x = (px / s) * 2 * RANGE - RANGE;
-        const z = (py / s) * 2 * RANGE - RANGE;
+        const x = cx + (px / s) * 2 * range - range;
+        const z = cz + (py / s) * 2 * range - range;
         const h = heightAt(x, z);
-        let r;
-        let gg;
-        let b;
-        if (h < -3) {
-          const k = Math.min(1, (h + 3) / (CREVASSE_DEPTH + 3));
-          r = 40 - k * 25; gg = 24 - k * 14; b = 18 - k * 10;
-        } else if (h > 8) {
-          r = 150; gg = 104; b = 74;
-        } else {
-          const k = Math.max(0, Math.min(1, (h + 1) / 7));
-          r = 96 + k * 60; gg = 66 + k * 40; b = 44 + k * 26;
+        let c;
+        if (isVoid(x, z) || h < -8) c = [6, 6, 10];
+        else if (h < -1.2) c = pal.water;
+        else if (h > 12) c = pal.wall;
+        else {
+          const k = Math.max(0, Math.min(1, (h + 1) / 9));
+          c = [pal.low[0] + (pal.high[0] - pal.low[0]) * k, pal.low[1] + (pal.high[1] - pal.low[1]) * k, pal.low[2] + (pal.high[2] - pal.low[2]) * k];
         }
-        // sombreado por pendiente
         const dx = heightAt(x + 0.8, z) - heightAt(x - 0.8, z);
-        const shade = Math.max(0.6, Math.min(1.25, 1 - dx * 0.12));
+        const shade = Math.max(0.55, Math.min(1.3, 1 - dx * 0.1));
         const i = (py * s + px) * 4;
-        img.data[i] = r * shade;
-        img.data[i + 1] = gg * shade;
-        img.data[i + 2] = b * shade;
+        img.data[i] = c[0] * shade;
+        img.data[i + 1] = c[1] * shade;
+        img.data[i + 2] = c[2] * shade;
         img.data[i + 3] = 255;
       }
     }
     g.putImageData(img, 0, 0);
-    // puentes
-    g.strokeStyle = 'rgba(222, 180, 120, 0.95)';
-    g.lineWidth = 4;
-    for (const bx of [-32, -2]) {
-      const [x0, y0] = this.toMap(bx, -17);
-      const [, y1] = this.toMap(bx, -4);
-      g.beginPath();
-      g.moveTo(x0, y0);
-      g.lineTo(x0, y1);
-      g.stroke();
+    // puente del santuario (nivel 3)
+    if (this.level?.segments?.length) {
+      g.fillStyle = 'rgba(200, 180, 220, 0.9)';
+      const [x0, y0] = this.toMap(-2.3, 33);
+      const [x1, y1] = this.toMap(2.3, 56);
+      g.fillRect(x0, y0, x1 - x0, y1 - y0);
     }
-    // vía
-    g.strokeStyle = 'rgba(200, 200, 210, 0.5)';
-    g.lineWidth = 1.5;
-    const [rx, ry0] = this.toMap(14, 46);
-    const [, ry1] = this.toMap(14, 1.5);
-    g.beginPath();
-    g.moveTo(rx, ry0);
-    g.lineTo(rx, ry1);
-    g.stroke();
+    // puentes de las ruinas (nivel 2)
+    if (this.level?.index === 2) {
+      g.fillStyle = 'rgba(200, 190, 230, 0.9)';
+      for (const bx of [-20, 22]) {
+        const [x0, y0] = this.toMap(bx - 2.2, 12.3);
+        const [x1, y1] = this.toMap(bx + 2.2, 25.7);
+        g.fillRect(x0, y0, x1 - x0, y1 - y0);
+      }
+    }
     this.bg = off;
   }
 
@@ -89,104 +95,110 @@ export class Minimap {
     this.draw();
   }
 
+  #dot(x, z, color, r = 3, glow = false) {
+    const { ctx } = this;
+    const [px, py] = this.toMap(x, z);
+    if (glow) {
+      ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', ', 0.3)');
+      ctx.beginPath();
+      ctx.arc(px, py, r + 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    return [px, py];
+  }
+
   draw() {
     const { ctx, size: s, game } = this;
-    if (!this.bg) this.buildBackground();
+    const level = game.level;
+    if (!level) return;
+    if (!this.bg) this.#buildBackground();
     ctx.clearRect(0, 0, s, s);
     ctx.drawImage(this.bg, 0, 0);
+    const pulse = 3 + Math.sin(this.t * 6) * 0.9;
 
-    const level = game.level;
-    // torres con su campo
-    for (const t of level.towers) {
-      const [x, y] = this.toMap(t.center.x, t.center.z);
-      const r = (INTERFERENCE_RADIUS / (2 * RANGE)) * s;
-      if (!t.destroyed) {
-        ctx.fillStyle = 'rgba(255, 60, 40, 0.22)';
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ff4a3a';
-      } else {
-        ctx.fillStyle = '#6b6b70';
-      }
-      ctx.fillRect(x - 4, y - 4, 8, 8);
-      if (t.destroyed) {
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x - 4, y - 4);
-        ctx.lineTo(x + 4, y + 4);
-        ctx.moveTo(x + 4, y - 4);
-        ctx.lineTo(x - 4, y + 4);
-        ctx.stroke();
-      }
-    }
-    // malacate
-    const ex = level.extraction;
-    if (ex) {
-      const [x, y] = this.toMap(ex.center.x, ex.center.z);
-      const ready = ex.state !== 'locked';
-      ctx.fillStyle = ready ? '#4ee39a' : '#a0525a';
-      ctx.strokeStyle = '#0c0806';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.rect(x - 5, y - 5, 10, 10);
-      ctx.fill();
-      ctx.stroke();
-      if (ready) {
-        ctx.strokeStyle = `rgba(78, 227, 154, ${0.5 + Math.sin(this.t * 5) * 0.4})`;
-        ctx.beginPath();
-        ctx.arc(x, y, 9 + Math.sin(this.t * 5) * 2, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-    // coleccionables y drones
-    const pulse = 2.6 + Math.sin(this.t * 6) * 0.8;
     for (const e of game.entities) {
       if (!e.alive) continue;
-      if (e.type === 'core' || e.type === 'goldcore' || e.type === 'battery') {
-        const p = e.object3d.position;
-        const [x, y] = this.toMap(p.x, p.z);
-        const color = e.type === 'core' ? '217, 246, 255' : e.type === 'goldcore' ? '255, 211, 107' : '93, 255, 168';
-        const r = e.type === 'battery' ? 2.2 : pulse;
-        ctx.fillStyle = `rgba(${color}, 0.3)`;
-        ctx.beginPath();
-        ctx.arc(x, y, r + 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = `rgb(${color})`;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (e.type === 'drone' && e.isActive) {
-        const [x, y] = this.toMap(e.currPos.x, e.currPos.z);
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(-e.yaw + Math.PI);
-        ctx.fillStyle = e.state === 'chase' ? '#ff5a3a' : '#ff9a3a';
-        ctx.beginPath();
-        ctx.moveTo(0, -5);
-        ctx.lineTo(4, 4);
-        ctx.lineTo(-4, 4);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+      switch (e.type) {
+        case 'cell':
+          this.#dot(e.basePos.x, e.basePos.z, 'rgb(95, 240, 255)', pulse, true);
+          break;
+        case 'health':
+        case 'ammo':
+        case 'grenades':
+          this.#dot(e.basePos.x, e.basePos.z, e.type === 'health' ? 'rgb(61, 255, 176)' : 'rgb(255, 196, 107)', 1.6);
+          break;
+        case 'weaponPickup':
+          this.#dot(e.basePos.x, e.basePos.z, 'rgb(255, 224, 138)', 3.2, true);
+          break;
+        case 'pylon':
+          if (!e.destroyed) this.#dot(e.pos.x, e.pos.z, 'rgb(176, 112, 255)', pulse, true);
+          break;
+        case 'node':
+          if (!e.dead) this.#dot(e.center.x, e.center.z, 'rgb(255, 79, 216)', 3.5, true);
+          break;
+        case 'beacon':
+          this.#dot(e.pos.x, e.pos.z, e.state === 'ready' ? 'rgb(255, 196, 107)' : 'rgb(127, 232, 255)', 3.5, e.state !== 'off');
+          break;
+        case 'dropship':
+          if (!e.wreck && e.state !== 'hidden') {
+            const [px, py] = this.toMap(e.pos.x, e.pos.z);
+            ctx.fillStyle = e.state === 'ready' ? '#3dffb0' : '#8ab';
+            ctx.fillRect(px - 4, py - 4, 8, 8);
+          }
+          break;
+        default:
+          break;
       }
     }
-    // jugador + cono de visión
+    // enemigos: solo los alertados o cercanos (el radar no es omnisciente)
     const player = game.player;
+    for (const e of game.enemies) {
+      if (e.dead || e.isBoss) continue;
+      const near = player && e.currPos.distanceTo(player.currPos) < 26;
+      if (!e.alerted && !near) continue;
+      this.#dot(e.currPos.x, e.currPos.z, e.type === 'bastion' ? 'rgb(255, 150, 60)' : 'rgb(255, 74, 90)', e.type === 'bastion' ? 3.2 : 2.3);
+    }
+    const boss = game.boss;
+    if (boss && !boss.dead) {
+      const [px, py] = this.#dot(boss.currPos.x, boss.currPos.z, 'rgb(255, 79, 216)', 5 + Math.sin(this.t * 4), true);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // objetivo actual
+    const wp = level.waypoint;
+    if (wp) {
+      const [px, py] = this.toMap(wp.pos.x, wp.pos.z);
+      ctx.save();
+      ctx.translate(Math.max(6, Math.min(s - 6, px)), Math.max(6, Math.min(s - 6, py)));
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = '#ffc46b';
+      ctx.strokeStyle = '#1a1206';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-4, -4, 8, 8);
+      ctx.strokeRect(-4, -4, 8, 8);
+      ctx.restore();
+    }
+    // jugador + cono de visión
     if (player) {
       const [x, y] = this.toMap(player.currPos.x, player.currPos.z);
       const yaw = game.cameraRig.yaw;
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(-yaw);
-      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 34);
-      grad.addColorStop(0, 'rgba(255,255,255,0.35)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 30);
+      grad.addColorStop(0, 'rgba(160,250,255,0.35)');
+      grad.addColorStop(1, 'rgba(160,250,255,0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.arc(0, 0, 34, -Math.PI / 2 - 0.55, -Math.PI / 2 + 0.55);
+      ctx.arc(0, 0, 30, -Math.PI / 2 - 0.55, -Math.PI / 2 + 0.55);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
@@ -194,7 +206,7 @@ export class Minimap {
       ctx.translate(x, y);
       ctx.rotate(-player.facing + Math.PI);
       ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#1b120b';
+      ctx.strokeStyle = '#03151c';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, -7);
@@ -206,12 +218,11 @@ export class Minimap {
       ctx.stroke();
       ctx.restore();
     }
-    // brújula
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = '700 11px Chakra Petch, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('N', s / 2, 12);
-    ctx.strokeStyle = 'rgba(255, 226, 196, 0.25)';
+    ctx.strokeStyle = 'rgba(140, 240, 255, 0.25)';
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, s - 1, s - 1);
   }

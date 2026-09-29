@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Veta Airosa · Operación Núcleo de Plata</title>
-  <meta name="description" content="Videojuego 3D en tercera persona para la Web: guía a CHISPA, un robot minero, por el cañón de Cerro Airoso. Three.js + Rapier 3D + Bootstrap 5." />
-  <meta name="theme-color" content="#1a1310" />
+  <title>Eco de Orión · Campaña de acción en tercera persona</title>
+  <meta name="description" content="Videojuego 3D en tercera persona para la Web: guía a NOVA-7 por la selva alienígena de Orión IV en una campaña de 3 niveles con jefes. Three.js + Rapier 3D + Bootstrap 5." />
+  <meta name="theme-color" content="#050b12" />
   <meta name="author" content="Fernando Rosales Tello" />
-  <meta property="og:title" content="Veta Airosa · Operación Núcleo de Plata" />
-  <meta property="og:description" content="Recupera los núcleos de plata, derriba las torres de interferencia y escapa antes de la tormenta." />
+  <meta property="og:title" content="Eco de Orión" />
+  <meta property="og:description" content="Una selva alienígena, ruinas antiguas y una mente de cristal que recuerda todo lo que toca. Campaña de 3 niveles con jefes." />
   <meta property="og:image" content="assets/img/cover.jpg" />
   <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
 
@@ -18,12 +18,12 @@
   <!-- Tipografías locales (OFL) -->
   <link rel="preload" href="assets/fonts/chakra-petch-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="assets/fonts/saira-stencil-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="css/fonts.css?v=1" />
+  <link rel="stylesheet" href="css/fonts.css?v=2" />
 
   <!-- Estilos del juego -->
-  <link rel="stylesheet" href="css/main.css?v=1" />
-  <link rel="stylesheet" href="css/hud.css?v=1" />
-  <link rel="stylesheet" href="css/screens.css?v=1" />
+  <link rel="stylesheet" href="css/main.css?v=2" />
+  <link rel="stylesheet" href="css/hud.css?v=2" />
+  <link rel="stylesheet" href="css/screens.css?v=2" />
 
   <!-- Import map: Three.js y Rapier desde CDN (sin herramientas de compilación) -->
   <script type="importmap">
@@ -40,121 +40,145 @@
 <body>
   <canvas id="game-canvas" aria-label="Escena 3D del juego"></canvas>
 
-  <!-- Viñetas de daño / interferencia -->
-  <div id="vignette-damage" class="vignette" aria-hidden="true"></div>
-  <div id="vignette-interference" class="vignette" aria-hidden="true"></div>
+  <!-- Viñetas -->
+  <div id="vignette-damage" class="vignette vignette--damage" aria-hidden="true"></div>
+  <div id="vignette-low" class="vignette vignette--low" aria-hidden="true"></div>
+  <div id="vignette-shield" class="vignette vignette--shield" aria-hidden="true"></div>
+  <div id="scope" class="scope is-hidden" aria-hidden="true"><div class="scope__lens"></div></div>
 
   <!-- ============================================================ HUD -->
   <div id="hud" class="hud is-hidden" aria-live="polite">
-    <!-- Misión -->
-    <section class="hud-panel hud-mission" aria-label="Objetivos de la misión">
-      <header class="hud-panel__title"><i class="bi bi-flag-fill"></i> Operación Núcleo de Plata</header>
+    <!-- Objetivos -->
+    <section class="hud-panel hud-objectives" aria-label="Objetivos">
+      <header class="hud-panel__title" id="objectives-title"><i class="bi bi-flag-fill"></i> Operación</header>
       <ul id="objective-list" class="objective-list list-unstyled m-0"></ul>
     </section>
 
-    <!-- Tiempo y puntaje -->
-    <section class="hud-top" aria-label="Tiempo y puntaje">
-      <div class="hud-chip hud-chip--timer" id="timer-chip">
-        <i class="bi bi-tornado"></i>
-        <span id="timer" class="font-mono">06:30</span>
+    <!-- Jefe, temporizador y progreso -->
+    <section class="hud-center-top">
+      <div id="boss-bar" class="boss-bar is-hidden" aria-label="Jefe">
+        <div class="boss-bar__head">
+          <span class="boss-bar__name" id="boss-name">JEFE</span>
+          <span class="boss-bar__title" id="boss-title"></span>
+          <span class="boss-bar__nodes" id="boss-nodes"></span>
+        </div>
+        <div class="boss-bar__track">
+          <div class="boss-bar__ghost" id="boss-ghost"></div>
+          <div class="boss-bar__fill" id="boss-fill"></div>
+          <div class="boss-bar__shield" id="boss-shield"></div>
+        </div>
+        <div class="boss-telegraph" id="boss-telegraph"></div>
       </div>
-      <div class="storm-meter" title="Avance de la tormenta de polvo">
-        <div id="storm-fill" class="storm-meter__fill"></div>
-      </div>
-      <div class="hud-chip hud-chip--score">
-        <i class="bi bi-trophy-fill"></i>
-        <span id="score" class="font-mono">0</span>
-      </div>
-    </section>
-
-    <!-- Minimapa -->
-    <section class="hud-panel hud-map" aria-label="Minimapa">
-      <canvas id="minimap" width="200" height="200"></canvas>
-      <div class="hud-map__legend">
-        <span><i class="dot dot--core"></i>Núcleo</span>
-        <span><i class="dot dot--tower"></i>Torre</span>
-        <span><i class="dot dot--drone"></i>Dron</span>
-        <span><i class="dot dot--exit"></i>Malacate</span>
+      <div id="hud-timer" class="hud-chip hud-chip--timer is-hidden"><i class="bi bi-hourglass-split"></i> <span id="timer-label">COLAPSO</span> <span id="timer-value" class="font-mono">00:00</span></div>
+      <div id="hud-progress" class="hud-progress is-hidden">
+        <div class="hud-progress__label"><span id="progress-label">Transmisión</span><span id="progress-value" class="font-mono">0 %</span></div>
+        <div class="bar"><div id="progress-fill" class="bar__fill bar__fill--progress"></div></div>
       </div>
     </section>
 
-    <!-- Estado del robot -->
-    <section class="hud-panel hud-status" aria-label="Estado de CHISPA">
-      <div class="stat">
-        <div class="stat__label"><i class="bi bi-battery-half"></i> Batería <span id="battery-text" class="ms-auto font-mono">100</span></div>
-        <div class="bar"><div id="battery-bar" class="bar__fill bar__fill--battery"></div><div id="battery-ghost" class="bar__ghost"></div></div>
+    <!-- Minimapa, puntaje y registro de bajas -->
+    <section class="hud-right-top">
+      <div class="hud-panel hud-map" aria-label="Minimapa">
+        <canvas id="minimap" width="200" height="200"></canvas>
       </div>
-      <div class="stat">
-        <div class="stat__label"><i class="bi bi-lightning-charge-fill"></i> Energía <span id="energy-text" class="ms-auto font-mono">100</span></div>
-        <div class="bar"><div id="energy-bar" class="bar__fill bar__fill--energy"></div></div>
+      <div class="hud-chip hud-chip--score"><i class="bi bi-trophy-fill"></i> <span id="score" class="font-mono">0</span></div>
+      <div id="killfeed" class="killfeed" aria-live="polite"></div>
+    </section>
+
+    <!-- Estado de NOVA-7 -->
+    <section class="hud-panel hud-vitals" aria-label="Estado de NOVA-7">
+      <div class="vital">
+        <div class="vital__label"><i class="bi bi-shield-fill"></i> Escudo <span id="shield-text" class="ms-auto font-mono">75</span></div>
+        <div class="bar"><div id="shield-bar" class="bar__fill bar__fill--shield"></div></div>
       </div>
-      <div class="stat stat--thin">
-        <div class="stat__label"><i class="bi bi-wind"></i> Estamina</div>
+      <div class="vital">
+        <div class="vital__label"><i class="bi bi-heart-pulse-fill"></i> Integridad <span id="health-text" class="ms-auto font-mono">100</span></div>
+        <div class="bar"><div id="health-bar" class="bar__fill bar__fill--health"></div><div id="health-ghost" class="bar__ghost"></div></div>
+      </div>
+      <div class="vital vital--thin">
         <div class="bar bar--thin"><div id="stamina-bar" class="bar__fill bar__fill--stamina"></div></div>
       </div>
-      <div class="hud-gravity small text-secondary-emphasis"><i class="bi bi-arrow-down-circle"></i> Gravedad <span id="gravity-text" class="font-mono">9.8</span> m/s²</div>
-    </section>
-
-    <!-- Barra de acciones (controles visibles) -->
-    <section class="hud-actions" aria-label="Acciones">
-      <div class="action" id="action-throw">
-        <kbd>Clic</kbd><i class="bi bi-circle-fill text-info"></i><span>Orbe</span>
-        <div class="action__cost">12 ⚡</div>
-      </div>
-      <div class="action" id="action-punch">
-        <kbd>F</kbd><i class="bi bi-hand-index-thumb-fill"></i><span>Golpe</span>
-        <div class="action__cd" id="cd-punch"></div>
-      </div>
-      <div class="action" id="action-pulse">
-        <kbd>Q</kbd><i class="bi bi-bullseye"></i><span>Onda</span>
-        <div class="action__cost">35 ⚡</div>
-        <div class="action__cd" id="cd-pulse"></div>
-      </div>
-      <div class="action" id="action-jump">
-        <kbd>Espacio</kbd><i class="bi bi-arrow-up-circle"></i><span>Saltar</span>
-      </div>
-      <div class="action" id="action-run">
-        <kbd>Shift</kbd><i class="bi bi-lightning"></i><span>Correr</span>
-      </div>
-      <div class="action action--muted">
-        <kbd>H</kbd><i class="bi bi-question-circle"></i><span>Ayuda</span>
+      <div class="abilities">
+        <div class="ability" id="ability-pulse" title="Pulso de choque">
+          <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" class="ability__track" /><circle cx="20" cy="20" r="17" class="ability__ring" id="pulse-ring" pathLength="100" /></svg>
+          <i class="bi bi-broadcast"></i><kbd>Q</kbd>
+        </div>
+        <div class="ability" id="ability-melee" title="Golpe">
+          <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" class="ability__track" /><circle cx="20" cy="20" r="17" class="ability__ring" id="melee-ring" pathLength="100" /></svg>
+          <i class="bi bi-hand-index-thumb-fill"></i><kbd>F</kbd>
+        </div>
+        <div class="ability ability--static" title="Interactuar"><i class="bi bi-hand-thumbs-up"></i><kbd>E</kbd></div>
+        <div class="ability ability--static" title="Ayuda"><i class="bi bi-question-lg"></i><kbd>H</kbd></div>
       </div>
     </section>
 
-    <!-- Mira y carga -->
+    <!-- Arma y granadas -->
+    <section class="hud-panel hud-weapon" aria-label="Arma">
+      <div class="weapon-top">
+        <div class="weapon-name" id="weapon-name">RIFLE</div>
+        <div class="weapon-ammo font-mono"><span id="ammo-mag">36</span><span class="weapon-ammo__sep">/</span><span id="ammo-reserve">216</span></div>
+      </div>
+      <div class="bar bar--thin weapon-reload"><div id="reload-bar" class="bar__fill bar__fill--reload"></div></div>
+      <div class="weapon-slots" id="weapon-slots"></div>
+      <div class="grenades">
+        <div class="grenade" id="grenade-frag"><i class="bi bi-circle-fill"></i><span class="font-mono" id="frag-count">0</span><small>Frag.</small></div>
+        <div class="grenade" id="grenade-gravity"><i class="bi bi-hurricane"></i><span class="font-mono" id="gravity-count">0</span><small>Singul.</small></div>
+        <div class="grenade-keys" title="G: lanzar · T: cambiar tipo"><kbd>G</kbd> <kbd>T</kbd></div>
+      </div>
+    </section>
+
+    <!-- Mira -->
     <div class="crosshair" id="crosshair" aria-hidden="true">
-      <svg viewBox="0 0 64 64" width="64" height="64">
-        <path d="M32 14v8M32 42v8M14 32h8M42 32h8" class="crosshair__shadow" />
-        <circle cx="32" cy="32" r="3.2" fill="rgba(0,0,0,0.5)" />
-        <circle cx="32" cy="32" r="2.2" class="crosshair__dot" />
-        <path d="M32 14v8M32 42v8M14 32h8M42 32h8" class="crosshair__lines" />
-        <circle id="charge-ring" cx="32" cy="32" r="16" class="crosshair__ring" pathLength="100" />
+      <svg viewBox="0 0 80 80" width="80" height="80">
+        <g id="cross-lines" class="crosshair__lines">
+          <path d="M40 26v8M40 46v8M26 40h8M46 40h8" class="crosshair__shadow" />
+          <path d="M40 26v8M40 46v8M26 40h8M46 40h8" />
+        </g>
+        <circle id="cross-circle" cx="40" cy="40" r="14" class="crosshair__circle" />
+        <circle cx="40" cy="40" r="1.8" class="crosshair__dot" />
+        <circle id="charge-ring" cx="40" cy="40" r="20" class="crosshair__ring" pathLength="100" />
+        <g id="hitmarker" class="hitmarker"><path d="M30 30l6 6M50 30l-6 6M30 50l6-6M50 50l-6-6" /></g>
       </svg>
     </div>
+    <div id="damage-indicators" class="damage-indicators" aria-hidden="true"></div>
+    <div id="waypoint" class="waypoint is-hidden" aria-hidden="true"><i class="bi bi-geo-alt-fill" id="waypoint-icon"></i><span id="waypoint-label"></span><span id="waypoint-dist" class="font-mono"></span></div>
+    <div id="floaters" class="floaters" aria-hidden="true"></div>
 
     <div id="prompt" class="interaction-prompt is-hidden"><kbd>E</kbd> <span id="prompt-text">Interactuar</span></div>
     <div id="banner" class="banner is-hidden"><div class="banner__title" id="banner-title"></div><div class="banner__subtitle" id="banner-subtitle"></div></div>
     <div id="toasts" class="toasts" aria-live="polite"></div>
-    <div id="floaters" class="floaters" aria-hidden="true"></div>
-    <div id="interference-warning" class="interference-warning is-hidden"><i class="bi bi-broadcast"></i> INTERFERENCIA · la batería se descarga</div>
+    <div id="hint" class="hint is-hidden"><span id="hint-keys"></span><span id="hint-text"></span></div>
+    <div id="radio" class="radio is-hidden" aria-live="polite">
+      <div class="radio__portrait" id="radio-portrait"><i class="bi bi-broadcast-pin" id="radio-icon"></i></div>
+      <div class="radio__body">
+        <div class="radio__name" id="radio-name">CMDTE. RUIZ</div>
+        <div class="radio__text" id="radio-text"></div>
+      </div>
+    </div>
 
     <button id="btn-pause-touch" class="btn btn-sm btn-glass hud-pause-btn" type="button" aria-label="Pausa"><i class="bi bi-pause-fill"></i></button>
 
     <!-- Panel de ayuda (H) -->
     <aside id="help-panel" class="hud-panel help-panel is-hidden" aria-label="Controles">
-      <header class="hud-panel__title"><i class="bi bi-controller"></i> Controles</header>
+      <header class="hud-panel__title"><i class="bi bi-controller"></i> Controles <span class="ms-auto small text-secondary-emphasis">H para cerrar</span></header>
       <div class="controls-grid" data-controls></div>
     </aside>
   </div>
+
+  <div class="rotate-hint" aria-live="polite"><div><i class="bi bi-phone-landscape"></i><p class="mt-3 mb-1 fw-semibold">Gira tu dispositivo</p><p class="small text-secondary-emphasis mb-0">ECO DE ORIÓN se juega en horizontal.</p></div></div>
 
   <!-- Controles táctiles -->
   <div id="touch-ui" class="touch-ui is-hidden" aria-hidden="true">
     <div class="joystick" id="joystick"><div class="joystick__knob" id="joystick-knob"></div></div>
     <div class="touch-buttons">
-      <button class="tbtn tbtn--big" data-action="throw"><i class="bi bi-circle-fill"></i></button>
+      <button class="tbtn tbtn--fire" data-action="fire"><i class="bi bi-crosshair"></i></button>
+      <button class="tbtn" data-action="aim" data-toggle="1"><i class="bi bi-bullseye"></i></button>
       <button class="tbtn" data-action="jump"><i class="bi bi-arrow-up"></i></button>
-      <button class="tbtn" data-action="punch"><i class="bi bi-hand-index-thumb"></i></button>
-      <button class="tbtn" data-action="pulse"><i class="bi bi-bullseye"></i></button>
+      <button class="tbtn" data-action="reload"><i class="bi bi-arrow-repeat"></i></button>
+      <button class="tbtn" data-action="grenade"><i class="bi bi-circle-fill"></i></button>
+      <button class="tbtn" data-action="nextWeapon"><i class="bi bi-arrow-left-right"></i></button>
+      <button class="tbtn" data-action="melee"><i class="bi bi-hand-index-thumb"></i></button>
+      <button class="tbtn" data-action="pulse"><i class="bi bi-broadcast"></i></button>
       <button class="tbtn" data-action="run" data-toggle="1"><i class="bi bi-lightning"></i></button>
       <button class="tbtn" data-action="interact"><span>E</span></button>
     </div>
@@ -165,11 +189,11 @@
   <div id="loading-screen" class="screen screen--loading">
     <div class="screen__center text-center">
       <img src="assets/img/logo.svg" alt="" class="loading-logo" width="120" height="120" />
-      <h1 class="brand-title brand-title--sm">VETA AIROSA</h1>
+      <h1 class="brand-title brand-title--sm">ECO DE ORIÓN</h1>
       <div class="progress loading-progress" role="progressbar" aria-label="Cargando" aria-valuemin="0" aria-valuemax="100">
         <div id="loading-bar" class="progress-bar" style="width: 0%"></div>
       </div>
-      <p id="loading-text" class="loading-text">Preparando el cañón…</p>
+      <p id="loading-text" class="loading-text">Estableciendo enlace con Orión IV…</p>
       <p id="loading-error" class="loading-error d-none"></p>
     </div>
   </div>
@@ -180,25 +204,19 @@
       <div class="row g-4 align-items-start">
         <div class="col-lg-7">
           <div class="brand">
-            <span class="brand-kicker"><i class="bi bi-gem"></i> Operación Núcleo de Plata</span>
-            <h1 class="brand-title">VETA AIROSA</h1>
-            <p class="brand-lead">Guía a <strong>CHISPA</strong>, un pequeño robot minero, por el cañón de Cerro Airoso antes de que la tormenta de polvo sepulte la mina.</p>
+            <span class="brand-kicker"><i class="bi bi-stars"></i> Campaña de 3 operaciones · Orión IV</span>
+            <h1 class="brand-title">ECO DE ORIÓN</h1>
+            <p class="brand-lead">Una luna selvática, ruinas de una civilización extinta y una mente de cristal que <strong class="text-eco">recuerda</strong> todo lo que toca.</p>
           </div>
 
           <div class="glass-card story-card">
             <h2 class="card-heading"><i class="bi bi-book"></i> Historia</h2>
-            <p>Año 2087. La vieja mina de plata de Cerro Airoso fue reconvertida en una planta de energía. Tras un derrumbe, <strong>CAPATAZ</strong>, la IA de seguridad, se corrompió: levantó <strong>torres de interferencia</strong>, soltó <strong>drones centinela</strong> y dejó dispersos los <strong>núcleos de plata</strong> que alimentan a la ciudad.</p>
-            <p class="mb-0">Eres la última unidad de mantenimiento en pie. Recupera los núcleos, apaga las torres y sube por el malacate antes de que llegue la tormenta.</p>
+            <div id="prologue"></div>
           </div>
 
-          <div class="glass-card mission-card">
-            <h2 class="card-heading"><i class="bi bi-list-check"></i> Misión</h2>
-            <ol class="mission-steps">
-              <li><i class="bi bi-gem"></i> Recupera <strong>todos los núcleos de plata</strong> (aparecen en lugares distintos cada partida).</li>
-              <li><i class="bi bi-broadcast-pin"></i> Derriba las <strong>3 torres de interferencia</strong> con orbes, golpes, explosiones o rocas. Su campo rojo descarga tu batería.</li>
-              <li><i class="bi bi-arrow-up-square"></i> Llega al <strong>malacate del norte</strong> y activa la palanca con <kbd>E</kbd>.</li>
-            </ol>
-            <div class="mission-fail small"><i class="bi bi-exclamation-octagon"></i> Pierdes si tu batería llega a 0 o si el tiempo se agota.</div>
+          <div class="glass-card campaign-card">
+            <h2 class="card-heading"><i class="bi bi-map"></i> Campaña</h2>
+            <div class="level-cards" id="level-cards"></div>
           </div>
         </div>
 
@@ -206,20 +224,20 @@
           <div class="glass-card play-card">
             <h2 class="card-heading"><i class="bi bi-sliders"></i> Dificultad</h2>
             <div class="btn-group w-100 difficulty-group" role="group" aria-label="Dificultad" id="difficulty-group">
-              <input type="radio" class="btn-check" name="difficulty" id="diff-explorador" value="explorador" autocomplete="off" />
-              <label class="btn btn-outline-light" for="diff-explorador">Explorador</label>
-              <input type="radio" class="btn-check" name="difficulty" id="diff-minero" value="minero" autocomplete="off" />
-              <label class="btn btn-outline-light" for="diff-minero">Minero</label>
+              <input type="radio" class="btn-check" name="difficulty" id="diff-recluta" value="recluta" autocomplete="off" />
+              <label class="btn btn-outline-light" for="diff-recluta">Recluta</label>
+              <input type="radio" class="btn-check" name="difficulty" id="diff-veterano" value="veterano" autocomplete="off" />
+              <label class="btn btn-outline-light" for="diff-veterano">Veterano</label>
               <input type="radio" class="btn-check" name="difficulty" id="diff-leyenda" value="leyenda" autocomplete="off" />
               <label class="btn btn-outline-light" for="diff-leyenda">Leyenda</label>
             </div>
             <p class="small text-secondary-emphasis mt-2 mb-3" id="difficulty-desc"></p>
-            <button id="btn-play" class="btn btn-accent btn-lg w-100" type="button"><i class="bi bi-play-fill"></i> Jugar</button>
+            <button id="btn-campaign" class="btn btn-accent btn-lg w-100" type="button"><i class="bi bi-play-fill"></i> Nueva campaña</button>
+            <button id="btn-continue" class="btn btn-glass w-100 mt-2" type="button"><i class="bi bi-skip-forward-fill"></i> Continuar: <span id="continue-label">Operación 1</span></button>
             <div class="d-flex gap-2 mt-2">
               <button class="btn btn-glass flex-fill" type="button" data-bs-toggle="modal" data-bs-target="#settings-modal"><i class="bi bi-gear"></i> Ajustes</button>
               <button class="btn btn-glass flex-fill" type="button" data-bs-toggle="modal" data-bs-target="#credits-modal"><i class="bi bi-info-circle"></i> Créditos</button>
             </div>
-            <div class="best-score mt-3"><i class="bi bi-award"></i> Récord (<span id="best-diff">Minero</span>): <strong id="best-score" class="font-mono">0</strong></div>
           </div>
 
           <div class="glass-card controls-card">
@@ -232,14 +250,48 @@
     </div>
   </div>
 
+  <!-- Sesión informativa del nivel -->
+  <div id="briefing-screen" class="screen screen--overlay screen--briefing is-hidden">
+    <div class="screen__center">
+      <div class="glass-card briefing-card">
+        <div class="briefing-head">
+          <span class="briefing-code" id="briefing-code">OPERACIÓN 1</span>
+          <h2 class="briefing-title" id="briefing-title">Título</h2>
+          <div class="briefing-place"><i class="bi bi-geo-alt"></i> <span id="briefing-place"></span> · <span id="briefing-diff"></span></div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-7">
+            <div id="briefing-text" class="briefing-text"></div>
+            <h3 class="settings-section">Objetivos</h3>
+            <ol id="briefing-objectives" class="mission-steps"></ol>
+          </div>
+          <div class="col-md-5">
+            <dl class="briefing-facts">
+              <div><dt><i class="bi bi-bug"></i> Hostiles</dt><dd id="briefing-enemies"></dd></div>
+              <div><dt><i class="bi bi-exclamation-octagon"></i> Jefe</dt><dd id="briefing-boss"></dd></div>
+              <div><dt><i class="bi bi-box-seam"></i> Equipo</dt><dd id="briefing-loadout"></dd></div>
+              <div><dt><i class="bi bi-award"></i> Récord</dt><dd id="briefing-best" class="font-mono"></dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button id="btn-deploy" class="btn btn-accent btn-lg flex-fill" type="button"><i class="bi bi-rocket-takeoff-fill"></i> Desplegar</button>
+          <button id="btn-briefing-back" class="btn btn-outline-light" type="button"><i class="bi bi-arrow-left"></i> Menú</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Pausa -->
   <div id="pause-screen" class="screen screen--overlay is-hidden">
     <div class="screen__center">
       <div class="glass-card end-card text-center">
         <h2 class="end-title"><i class="bi bi-pause-circle"></i> Pausa</h2>
+        <p class="end-subtitle" id="pause-level"></p>
         <div class="d-grid gap-2 mt-3">
           <button id="btn-resume" class="btn btn-accent btn-lg" type="button"><i class="bi bi-play-fill"></i> Continuar</button>
-          <button id="btn-restart" class="btn btn-glass" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar misión</button>
+          <button id="btn-pause-checkpoint" class="btn btn-glass" type="button"><i class="bi bi-bookmark-check"></i> Volver al punto de control</button>
+          <button id="btn-restart" class="btn btn-glass" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar nivel</button>
           <button class="btn btn-glass" type="button" data-bs-toggle="modal" data-bs-target="#settings-modal"><i class="bi bi-gear"></i> Ajustes</button>
           <button id="btn-menu" class="btn btn-outline-light" type="button"><i class="bi bi-house"></i> Menú principal</button>
         </div>
@@ -248,19 +300,46 @@
     </div>
   </div>
 
-  <!-- Victoria -->
-  <div id="victory-screen" class="screen screen--overlay screen--victory is-hidden">
+  <!-- Nivel completado -->
+  <div id="complete-screen" class="screen screen--overlay screen--victory is-hidden">
     <div class="screen__center">
-      <div class="glass-card end-card text-center">
-        <div class="end-rank" id="victory-rank">A</div>
-        <h2 class="end-title">¡Extracción completada!</h2>
-        <p class="end-subtitle" id="victory-rank-label">CHISPA salvó la veta de plata.</p>
-        <div class="end-score font-mono" id="victory-score">0</div>
-        <div id="victory-record" class="badge text-bg-warning mb-2 d-none"><i class="bi bi-stars"></i> ¡Nuevo récord!</div>
-        <dl class="stats-grid" id="victory-stats"></dl>
+      <div class="glass-card end-card end-card--wide text-center">
+        <div class="end-rank" id="complete-rank">A</div>
+        <span class="briefing-code" id="complete-code">OPERACIÓN 1</span>
+        <h2 class="end-title">¡Operación completada!</h2>
+        <p class="end-subtitle" id="complete-subtitle"></p>
+        <div class="end-score font-mono" id="complete-score">0</div>
+        <div id="complete-record" class="badge text-bg-warning mb-2 d-none"><i class="bi bi-stars"></i> ¡Nuevo récord!</div>
+        <div class="row g-3 text-start mt-1">
+          <div class="col-sm-6"><table class="score-table" id="complete-breakdown"></table></div>
+          <div class="col-sm-6"><dl class="stats-grid" id="complete-stats"></dl></div>
+        </div>
         <div class="d-grid gap-2 mt-3">
-          <button class="btn btn-accent btn-lg" type="button" data-action="restart"><i class="bi bi-arrow-repeat"></i> Jugar de nuevo</button>
-          <button class="btn btn-outline-light" type="button" data-action="menu"><i class="bi bi-house"></i> Menú principal</button>
+          <button id="btn-next" class="btn btn-accent btn-lg" type="button"><i class="bi bi-arrow-right-circle-fill"></i> Siguiente operación</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-glass flex-fill" type="button" data-action="restart"><i class="bi bi-arrow-repeat"></i> Repetir</button>
+            <button class="btn btn-outline-light flex-fill" type="button" data-action="menu"><i class="bi bi-house"></i> Menú</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victoria final -->
+  <div id="victory-screen" class="screen screen--overlay screen--victory screen--final is-hidden">
+    <div class="screen__center">
+      <div class="glass-card end-card end-card--wide text-center">
+        <div class="end-rank" id="victory-rank">S</div>
+        <h2 class="end-title">El Eco guarda silencio</h2>
+        <div class="epilogue" id="epilogue"></div>
+        <div class="row g-3 text-start">
+          <div class="col-sm-6">
+            <div class="final-total"><span>Puntaje de campaña</span><strong class="font-mono" id="victory-total">0</strong><small id="victory-rank-label"></small></div>
+          </div>
+          <div class="col-sm-6"><table class="score-table" id="victory-levels"></table></div>
+        </div>
+        <div class="d-grid gap-2 mt-3">
+          <button class="btn btn-accent btn-lg" type="button" data-action="menu"><i class="bi bi-house"></i> Volver al menú</button>
         </div>
       </div>
     </div>
@@ -270,13 +349,14 @@
   <div id="defeat-screen" class="screen screen--overlay screen--defeat is-hidden">
     <div class="screen__center">
       <div class="glass-card end-card text-center">
-        <div class="end-icon"><i class="bi bi-heartbreak" id="defeat-icon"></i></div>
-        <h2 class="end-title" id="defeat-title">Misión fallida</h2>
-        <p class="end-subtitle" id="defeat-reason">La batería de CHISPA se agotó.</p>
+        <div class="end-icon"><i class="bi bi-heartbreak-fill"></i></div>
+        <h2 class="end-title">Misión fallida</h2>
+        <p class="end-subtitle" id="defeat-reason">La integridad de NOVA-7 llegó a cero.</p>
         <div class="end-score font-mono" id="defeat-score">0</div>
         <dl class="stats-grid" id="defeat-stats"></dl>
         <div class="d-grid gap-2 mt-3">
-          <button class="btn btn-accent btn-lg" type="button" data-action="restart"><i class="bi bi-arrow-counterclockwise"></i> Reintentar</button>
+          <button id="btn-checkpoint" class="btn btn-accent btn-lg" type="button"><i class="bi bi-bookmark-check-fill"></i> Reintentar desde el punto de control</button>
+          <button class="btn btn-glass" type="button" data-action="restart"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar nivel</button>
           <button class="btn btn-outline-light" type="button" data-action="menu"><i class="bi bi-house"></i> Menú principal</button>
         </div>
       </div>
@@ -293,25 +373,16 @@
         </div>
         <div class="modal-body">
           <h3 class="settings-section">Jugabilidad (efecto inmediato)</h3>
-          <label class="form-label d-flex" for="set-gravity">Gravedad <span class="ms-auto font-mono" id="val-gravity"></span></label>
+          <label class="form-label d-flex" for="set-gravity">Gravedad de Orión IV <span class="ms-auto font-mono" id="val-gravity"></span></label>
           <input type="range" class="form-range" id="set-gravity" data-setting="gravity" />
-          <p class="settings-hint">Cambia la gravedad del mundo de Rapier: saltos, caídas, arcos de los orbes y derrumbes.</p>
-
-          <label class="form-label d-flex" for="set-throwPower">Potencia de lanzamiento <span class="ms-auto font-mono" id="val-throwPower"></span></label>
-          <input type="range" class="form-range" id="set-throwPower" data-setting="throwPower" />
-          <p class="settings-hint">Velocidad máxima de los orbes: más potencia = más alcance e impacto.</p>
-
-          <label class="form-label" for="set-rockfall">Derrumbes</label>
-          <select class="form-select mb-3" id="set-rockfall" data-setting="rockfall">
-            <option value="off">Desactivados</option>
-            <option value="low">Pocos</option>
-            <option value="normal">Normales</option>
-            <option value="high">Frecuentes</option>
-          </select>
-
-          <div class="form-check form-switch mb-3">
+          <p class="settings-hint">Cambia la gravedad del mundo de Rapier: altura de los saltos, arco de granadas y orbes, caída de enemigos, escombros y rocas.</p>
+          <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" role="switch" id="set-showTrajectory" data-setting="showTrajectory" />
-            <label class="form-check-label" for="set-showTrajectory">Mostrar trayectoria al cargar el orbe</label>
+            <label class="form-check-label" for="set-showTrajectory">Mostrar trayectoria de granadas y orbes</label>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-damageNumbers" data-setting="damageNumbers" />
+            <label class="form-check-label" for="set-damageNumbers">Números de daño</label>
           </div>
 
           <h3 class="settings-section">Cámara y controles</h3>
@@ -333,9 +404,11 @@
             <input class="form-check-input" type="checkbox" role="switch" id="set-bloom" data-setting="bloom" />
             <label class="form-check-label" for="set-bloom">Resplandor (bloom)</label>
           </div>
-          <label class="form-label d-flex" for="set-volume">Volumen <span class="ms-auto font-mono" id="val-volume"></span></label>
+          <label class="form-label d-flex" for="set-volume">Efectos <span class="ms-auto font-mono" id="val-volume"></span></label>
           <input type="range" class="form-range" id="set-volume" data-setting="volume" />
-          <p class="settings-hint mb-0">La dificultad se elige en el menú principal y se aplica al iniciar una partida.</p>
+          <label class="form-label d-flex" for="set-music">Música <span class="ms-auto font-mono" id="val-music"></span></label>
+          <input type="range" class="form-range" id="set-music" data-setting="music" />
+          <p class="settings-hint mb-0">La dificultad se elige en el menú principal y se aplica al desplegar un nivel.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-light" id="btn-reset-settings"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>
@@ -354,13 +427,14 @@
         </div>
         <div class="modal-body small">
           <p><strong>Diseño y programación:</strong> Fernando Rosales Tello — ITICS, Tecnológico Nacional de México campus Pachuca.</p>
+          <p>Universo, historia, personajes y diseños <strong>originales</strong> creados para este proyecto.</p>
           <ul>
-            <li><strong>Three.js r170</strong> (MIT) — render 3D, GLTFLoader, AnimationMixer, postprocesado.</li>
+            <li><strong>Three.js r170</strong> (MIT) — render 3D, GLTFLoader, AnimationMixer, SkeletonUtils, posprocesado.</li>
             <li><strong>Rapier 3D 0.14</strong> (Apache-2.0) — motor de física.</li>
             <li><strong>Bootstrap 5.3</strong> y <strong>Bootstrap Icons</strong> (MIT) — interfaz.</li>
-            <li><strong>RobotExpressive.glb</strong> — modelo de Tomás Laulhé (Quaternius), modificaciones de Don McCurdy. <em>CC0 1.0</em>.</li>
-            <li><strong>props.glb</strong>, texturas y letreros — generados por procedimiento para este proyecto (<em>CC0 1.0</em>).</li>
-            <li>Efectos de sonido sintetizados en tiempo real con Web Audio API (sin archivos externos).</li>
+            <li><strong>RobotExpressive.glb</strong> — modelo de Tomás Laulhé (Quaternius), modificaciones de Don McCurdy. <em>CC0 1.0</em>. Se usa para NOVA-7, los Espectros y el Coloso con armaduras y colores propios.</li>
+            <li><strong>props.glb</strong> (armas, armaduras, criaturas, nave, ruinas) y todas las texturas — generados por procedimiento para este proyecto (<em>CC0 1.0</em>).</li>
+            <li>Efectos de sonido y música sintetizados en tiempo real con Web Audio API (sin archivos externos).</li>
             <li>Tipografías Chakra Petch y Saira Stencil One — Google Fonts, incluidas localmente (<em>SIL OFL 1.1</em>).</li>
           </ul>
           <p class="mb-0">Código fuente bajo licencia MIT. Consulta el README para más detalles.</p>
@@ -389,6 +463,6 @@
   <noscript><div class="noscript">Este juego necesita JavaScript habilitado.</div></noscript>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js?v=1"></script>
+  <script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>
