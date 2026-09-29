@@ -108,13 +108,13 @@ def ground():
     fine = fbm(s, [(1.2, 1.0)], 12)
     pebbles = speckles(s, 900, 2, 7, 13)
     cracks_n = fbm(s, [(18, 1.0), (6, 0.4)], 14)
-    cracks = np.clip(1 - np.abs(cracks_n - 0.5) * 60, 0, 1) * (fbm(s, [(40, 1)], 15) > 0.5)
+    cracks = np.clip(1 - np.abs(cracks_n - 0.5) * 85, 0, 1) * (fbm(s, [(40, 1)], 15) > 0.55)
     t = norm01(base * 0.8 + fine * 0.2)
     rgb = lerp_color((140, 94, 58), (201, 152, 101), t)
     rgb = rgb * (0.9 + 0.2 * fine[..., None])
     peb_col = lerp_color((96, 78, 64), (214, 196, 170), fbm(s, [(3, 1)], 16))
     rgb = rgb * (1 - pebbles[..., None] * 0.85) + peb_col * pebbles[..., None] * 0.85
-    rgb *= (1 - cracks[..., None] * 0.45)
+    rgb *= (1 - cracks[..., None] * 0.28)
     save(to_img(rgb), "ground_albedo.jpg")
     h = base * 0.6 + fine * 0.3 + pebbles * 0.9 - cracks * 0.5
     save(normal_map(h, 7.0), "ground_normal.jpg", 92)
@@ -136,8 +136,8 @@ def rock():
                    lerp_color(c_dark, c_mid, np.clip(palette_t * 2, 0, 1)),
                    lerp_color(c_mid, c_light, np.clip(palette_t * 2 - 1, 0, 1)))
     crack_n = fbm(s, [(12, 1.0), (4, 0.3)], 23)
-    cracks = np.clip(1 - np.abs(crack_n - 0.5) * 45, 0, 1)
-    rgb *= (1 - cracks[..., None] * 0.5)
+    cracks = np.clip(1 - np.abs(crack_n - 0.5) * 70, 0, 1)
+    rgb *= (1 - cracks[..., None] * 0.3)
     rgb *= (0.85 + 0.3 * detail[..., None])
     save(to_img(rgb), "rock_albedo.jpg")
     h = band * 0.5 + band2 * 0.2 + detail * 0.6 - cracks * 0.6

@@ -168,6 +168,7 @@ export class Mission {
   update(dt) {
     if (this.finished) return;
     const { game } = this;
+    if (game.level.extraction?.state === 'rising') return; // el reloj se detiene durante la extracción
     this.elapsed += dt;
     this.timeLeft = Math.max(0, this.timeLeft - dt);
     for (const mark of [120, 60, 30, 10]) {

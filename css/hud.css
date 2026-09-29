@@ -680,6 +680,15 @@ body.is-touch .hud-pause-btn {
   .interference-warning { top: 48px; font-size: 0.72rem; }
 }
 
+@media (max-width: 560px) {
+  .hud-top { top: 8px; }
+  .hud-mission { top: 52px; width: 188px; }
+  .hud-map { top: 52px; }
+  #minimap { width: 96px; height: 96px; }
+  .toasts { top: 175px; }
+  .hud-pause-btn { top: 160px; }
+}
+
 @media (max-height: 520px) {
   .hud-mission { transform: scale(0.82); transform-origin: top left; }
   .hud-map { transform: scale(0.85); transform-origin: top right; }

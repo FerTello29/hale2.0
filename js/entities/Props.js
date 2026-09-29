@@ -250,7 +250,7 @@ export class Boulder extends PhysicsEntity {
     const speed = this.speed();
     if (other?.type === 'player' && this.hitCooldown <= 0 && speed > 4.5) {
       this.hitCooldown = 0.8;
-      other.damage((speed - 3.5) * 4.5 * (this.radius / 0.8), 'boulder');
+      other.damage(Math.min(30, (speed - 3.5) * 4.5 * (this.radius / 0.8)), 'boulder');
     }
     if (other?.type === 'drone' && speed > 3) other.hit({ kind: 'explosion', point: this.currPos.clone() });
     if (this.rockfall && !this.landed && other?.type === 'world') {

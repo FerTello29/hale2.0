@@ -24,7 +24,7 @@ export class ThirdPersonCamera {
     this.currentDistance = 5.2;
     this.minDistance = 2.4;
     this.maxDistance = 10;
-    this.aimDistance = 2.6;
+    this.aimDistance = 3.3;
     this.shoulder = 0.45;
     this.pivot = new THREE.Vector3();
     this.pivotInit = false;
@@ -88,10 +88,10 @@ export class ThirdPersonCamera {
     const wantD = aiming ? this.aimDistance : this.distance;
     this.currentDistance += (wantD - this.currentDistance) * (1 - Math.exp(-dt * 9));
 
-    const shoulder = aiming ? 0.75 : this.shoulder;
+    const shoulder = aiming ? 0.95 : this.shoulder;
     this.right(_dir);
     _pivot.copy(this.pivot).addScaledVector(_dir, shoulder);
-    _pivot.y += aiming ? 0.25 : 0.2;
+    _pivot.y += aiming ? 0.4 : 0.2;
 
     const cp = Math.cos(this.pitch);
     _dir.set(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);

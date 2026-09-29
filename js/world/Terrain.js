@@ -127,6 +127,7 @@ export class Terrain {
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.groundMap = { value: textures.groundAlbedo };
       shader.uniforms.rockMap = { value: textures.rockAlbedo };
+      shader.uniforms.groundNormalMap = { value: textures.groundNormal };
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNormal;')
         .replace(
@@ -136,7 +137,21 @@ export class Terrain {
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D groundMap;\nuniform sampler2D rockMap;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;'
+          '#include <common>\nuniform sampler2D groundMap;\nuniform sampler2D rockMap;\nuniform sampler2D groundNormalMap;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;'
+        )
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+          {
+            // mapa normal del suelo proyectado en XZ (solo en zonas planas)
+            vec3 gn = texture2D(groundNormalMap, vWPos.xz * 0.11).xyz * 2.0 - 1.0;
+            vec3 wn = normalize(vWNormal);
+            vec3 T = normalize(vec3(1.0, 0.0, 0.0) - wn * wn.x);
+            vec3 B = normalize(cross(T, wn));
+            vec3 pn = normalize(T * gn.x + B * gn.y + wn * gn.z);
+            float fl = smoothstep(0.66, 0.86, wn.y);
+            normal = normalize((viewMatrix * vec4(normalize(mix(wn, pn, fl * 0.85)), 0.0)).xyz);
+          }`
         )
         .replace(
           '#include <map_fragment>',
