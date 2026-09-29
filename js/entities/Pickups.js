@@ -34,6 +34,7 @@ class Pickup extends Entity {
     this.body = body;
     this.colliders = colliders;
     this.phase = Math.random() * Math.PI * 2;
+    this.radius = radius;
     this.lifetime = lifetime;
     this.age = 0;
   }
@@ -41,6 +42,12 @@ class Pickup extends Entity {
   update(dt) {
     this.age += dt;
     this.phase += dt;
+    // respaldo: si por alguna razón no llegó el evento del sensor, comprobar distancia
+    const player = this.game.player;
+    if (player && !player.dead && this.game.state === 'playing' && player.currPos.distanceToSquared(this.basePos) < this.radius * this.radius * 0.8) {
+      this.collect(player);
+      return;
+    }
     this.object3d.position.y = this.basePos.y + Math.sin(this.phase * 2.2) * 0.12;
     this.model.rotation.y += dt * 1.6;
     const remaining = this.lifetime - this.age;

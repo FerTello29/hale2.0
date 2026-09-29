@@ -237,7 +237,7 @@ export class Extraction extends Entity {
     if (this.state === 'ready') {
       this.beamMat.opacity = 0.12 + Math.sin(this.t * 3) * 0.04;
     } else if (this.state === 'rising' || this.state === 'done') {
-      this.beamMat.opacity = Math.max(0, this.beamMat.opacity - dt * 0.05);
+      this.beamMat.opacity = Math.max(0, this.beamMat.opacity - dt * 0.35);
     }
   }
 }

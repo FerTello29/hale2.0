@@ -68,6 +68,13 @@ export class PhysicsWorld {
     });
   }
 
+  /** Sincroniza las consultas espaciales con los cuerpos recién creados/movidos. */
+  refreshQueries() {
+    if (!this.world) return;
+    this.world.propagateModifiedBodyPositionsToColliders();
+    this.world.updateSceneQueries();
+  }
+
   // --------------------------------------------------------------- registro
   register(collider, entity) {
     this.owners.set(collider.handle, entity);

@@ -147,13 +147,16 @@ export class Minimap {
       if (e.type === 'core' || e.type === 'goldcore' || e.type === 'battery') {
         const p = e.object3d.position;
         const [x, y] = this.toMap(p.x, p.z);
-        ctx.fillStyle = e.type === 'core' ? '#d9f6ff' : e.type === 'goldcore' ? '#ffd36b' : '#5dffa8';
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 6;
+        const color = e.type === 'core' ? '217, 246, 255' : e.type === 'goldcore' ? '255, 211, 107' : '93, 255, 168';
+        const r = e.type === 'battery' ? 2.2 : pulse;
+        ctx.fillStyle = `rgba(${color}, 0.3)`;
         ctx.beginPath();
-        ctx.arc(x, y, e.type === 'battery' ? 2.2 : pulse, 0, Math.PI * 2);
+        ctx.arc(x, y, r + 2.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.fillStyle = `rgb(${color})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
       } else if (e.type === 'drone' && e.isActive) {
         const [x, y] = this.toMap(e.currPos.x, e.currPos.z);
         ctx.save();

@@ -185,13 +185,15 @@ export class Game {
     this.squad.spawnAll();
     this.spawner = new Spawner(this, this.level, difficulty);
     this.mission = new Mission(this, difficulty, { coresTotal: difficulty.cores, towersTotal: this.level.towers.length });
+    // asentar la física antes de mostrar nada (también actualiza las consultas espaciales)
+    for (let i = 0; i < 30; i++) this.physics.step(1 / 60, (h) => this.#fixed(h), (a, b, s, c1, c2) => this.#onCollision(a, b, s, c1, c2));
+    this.#processRemovals();
+    this.physics.refreshQueries();
+    // generación dinámica en posiciones válidas (raycasts + superposición)
     this.spawner.spawnCores(difficulty.cores);
     this.spawner.spawnBatteries(2);
     this.cameraRig.reset(this.player.chestPosition(), 0);
     this.env.setStorm(0);
-    // asentar la física antes de mostrar nada
-    for (let i = 0; i < 30; i++) this.physics.step(1 / 60, (h) => this.#fixed(h), (a, b, s, c1, c2) => this.#onCollision(a, b, s, c1, c2));
-    this.#processRemovals();
   }
 
   addEntity(e) {
@@ -265,12 +267,12 @@ export class Game {
   }
 
   quitToMenu() {
-    this.state = 'menu';
     this.input.exitLock();
     this.hud.hide();
     this.touch.show(false);
     this.audio.resume();
     this.#buildWorld(DIFFICULTIES[this.settings.get('difficulty')] || DIFFICULTIES.minero);
+    this.state = 'menu';
     this.screens.show('menu');
   }
 

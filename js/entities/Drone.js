@@ -14,8 +14,10 @@ import { heightAt } from '../world/Terrain.js';
 
 const _to = new THREE.Vector3();
 const _tmp = new THREE.Vector3();
+const _tmp2 = new THREE.Vector3();
 const DOWN = { x: 0, y: -1, z: 0 };
-const GROUND_QUERY = groups(0xffff, G.WORLD);
+const GROUND_QUERY = groups(0xffff, G.WORLD | G.PROP);
+const SIGHT_QUERY = groups(0xffff, G.WORLD);
 
 export class Drone extends PhysicsEntity {
   constructor(game, home, squad) {
@@ -33,8 +35,13 @@ export class Drone extends PhysicsEntity {
     game.level.root.add(this.object3d);
 
     this.hover = 3.4 + Math.random() * 0.8;
+    this.patrolAngle = Math.random() * Math.PI * 2;
+    this.patrolRadius = 5 + Math.random() * 2.5;
+    // nace sobre su círculo de patrulla (nunca dentro de la torre que vigila)
     const start = home.pos.clone();
-    start.y = this.#groundAt(start.x, start.z) + this.hover;
+    start.x += Math.cos(this.patrolAngle) * this.patrolRadius;
+    start.z += Math.sin(this.patrolAngle) * this.patrolRadius;
+    start.y = this.#groundAt(start.x, start.z) + this.hover + 2;
     this.attachBody(
       R.RigidBodyDesc.kinematicPositionBased().setTranslation(start.x, start.y, start.z),
       R.ColliderDesc.ball(0.6)
@@ -48,8 +55,6 @@ export class Drone extends PhysicsEntity {
     this.vel = new THREE.Vector3();
     this.yaw = 0;
     this.state = 'patrol';
-    this.patrolAngle = Math.random() * Math.PI * 2;
-    this.patrolRadius = 4 + Math.random() * 3;
     this.fireTimer = 1.5 + Math.random() * 1.5;
     this.senseTimer = 0;
     this.groundTimer = 0;
@@ -87,7 +92,7 @@ export class Drone extends PhysicsEntity {
       this.seesPlayer = false;
       if (dist < 26) {
         _to.subVectors(chest, this.currPos).normalize();
-        const hit = this.game.physics.raycast(this.currPos, _to, dist, { groups: GROUND_QUERY });
+        const hit = this.game.physics.raycast(this.currPos, _to, dist, { groups: SIGHT_QUERY });
         this.seesPlayer = !hit;
       }
       const fromHome = _to.subVectors(this.currPos, this.home.pos).setY(0).length();
@@ -162,8 +167,10 @@ export class Drone extends PhysicsEntity {
       );
     }
     if (this.groundTimer <= 0) {
-      this.groundTimer = 0.3;
-      this.groundY = this.#groundAt(this.pos.x, this.pos.z);
+      this.groundTimer = 0.25;
+      // suelo actual y 2.5 m adelante: así el dron se eleva ANTES de llegar a una torre o pila de cajas
+      const ahead = this.vel.lengthSq() > 0.01 ? _tmp2.copy(this.vel).setY(0).normalize().multiplyScalar(2.5) : _tmp2.set(0, 0, 0);
+      this.groundY = Math.max(this.#groundAt(this.pos.x, this.pos.z), this.#groundAt(this.pos.x + ahead.x, this.pos.z + ahead.z));
     }
     const minY = this.groundY + this.hover;
     target.y = Math.max(minY, player && this.state === 'chase' ? player.currPos.y + 2.8 : minY) + Math.sin(this.time * 1.7) * 0.25;
