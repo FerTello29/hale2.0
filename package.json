@@ -1,0 +1,15 @@
+{
+  "name": "veta-airosa",
+  "version": "1.0.0",
+  "description": "Videojuego 3D en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server . -p 8080 -c-1",
+    "props": "cd tools && npm install --no-save three@0.170.0 && node build-props.mjs",
+    "textures": "python tools/generate_textures.py"
+  },
+  "keywords": ["threejs", "rapier", "videojuego", "tercera-persona", "github-pages"],
+  "author": "Fernando Rosales Tello",
+  "license": "MIT"
+}

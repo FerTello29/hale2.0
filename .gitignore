@@ -1,0 +1,15 @@
+# Dependencias locales opcionales (el juego usa CDN, no las necesita)
+node_modules/
+tools/node_modules/
+tools/package-lock.json
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+
+# Salidas temporales
+*.tmp
+*.zip
