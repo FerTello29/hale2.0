@@ -1,62 +1,58 @@
-# Publicar VETA AIROSA en GitHub y GitHub Pages
+# Publicar ECO DE ORIÓN en GitHub y GitHub Pages
 
-Esta guía asume Windows con Git instalado y la cuenta de GitHub **FerTello29** (cambia el usuario si usas otra). El proyecto ya trae su historial de commits (carpeta oculta `.git`), así que **no** hace falta `git init`.
+Esta guía asume Windows con Git instalado y la cuenta de GitHub **FerTello29**. El proyecto trae su historial de commits en la carpeta oculta `.git`: la versión 2 (*Eco de Orión*) está **encima** de los 17 commits de la versión 1 (*Veta Airosa*) que ya están en `https://github.com/FerTello29/veta-airosa`.
 
-> Importante: extrae el ZIP completo. Si copias solo los archivos visibles, se pierde la carpeta oculta `.git` y con ella el historial de versiones.
+> Importante: extrae el ZIP completo. Si copias solo los archivos visibles, se pierde la carpeta oculta `.git` y con ella el historial.
 
-## 1. Verificar la cuenta de Git
+## A. Actualizar el repositorio existente (`veta-airosa`) con la versión 2
 
-Si en tu equipo hay más de una cuenta de GitHub guardada (por ejemplo `Thorium29`), revisa cuál se va a usar antes de subir:
+1. Cierra VS Code y cualquier terminal abierta en la carpeta anterior.
+2. Renombra la carpeta anterior como respaldo, por ejemplo `veta-airosa-v1`.
+3. Extrae el ZIP en el mismo lugar (por ejemplo el Escritorio). Debe quedar una carpeta `veta-airosa` con `index.html` y la carpeta oculta `.git`.
+4. Abre una terminal en la nueva carpeta (en VS Code: *Terminal → New Terminal*) y revisa:
 
-```bash
-git config --global user.name
-git config --global user.email
-```
+   ```bash
+   git status            # "On branch main" y "nothing to commit"
+   git log --oneline     # los commits nuevos arriba y los 17 de la v1 abajo
+   ```
 
-Si al hacer `push` Windows intenta usar la cuenta equivocada: **Panel de control → Administrador de credenciales → Credenciales de Windows**, elimina la entrada `git:https://github.com` y vuelve a intentarlo; se te pedirá iniciar sesión con la cuenta correcta.
+5. Conecta el repositorio remoto y sube:
 
-Los commits incluidos están firmados como *Fernando Rosales Tello <ftello629@gmail.com>*. Si tu correo de GitHub es otro, GitHub simplemente no los enlazará a tu avatar (no afecta la publicación).
+   ```bash
+   git remote add origin https://github.com/FerTello29/veta-airosa.git
+   git push -u origin main
+   ```
 
-## 2. Crear el repositorio en GitHub
+   Si responde que `origin` ya existe: `git remote set-url origin https://github.com/FerTello29/veta-airosa.git` y repite el `push`.
 
-1. Entra a <https://github.com/new>.
-2. **Repository name:** `veta-airosa`.
-3. **Public** (necesario para GitHub Pages gratis).
-4. **No** marques *Add a README*, *.gitignore* ni *license* (el proyecto ya los tiene; si los marcas habrá conflicto al subir).
-5. *Create repository*.
+   Como la versión 2 continúa el mismo historial, el `push` es un avance directo (*fast-forward*): **no** hace falta `--force`. Si GitHub lo rechaza con `fetch first`, significa que en GitHub hay commits que no están aquí (por ejemplo, un README editado en la web); en ese caso avísame antes de forzar nada.
 
-## 3. Subir el proyecto
-
-Abre una terminal en la carpeta del proyecto (en VS Code: *Terminal → New Terminal*):
-
-```bash
-git status                      # debe decir "On branch main" y "nothing to commit"
-git log --oneline               # historial de commits incluido
-git remote add origin https://github.com/FerTello29/veta-airosa.git
-git push -u origin main
-```
-
-Si `git remote add` responde que `origin` ya existe:
-
-```bash
-git remote set-url origin https://github.com/FerTello29/veta-airosa.git
-git push -u origin main
-```
-
-## 4. Activar GitHub Pages
+## B. Activar GitHub Pages (solo la primera vez)
 
 1. En el repositorio: **Settings → Pages**.
 2. En **Build and deployment → Source** elige **GitHub Actions**.
-3. Ve a la pestaña **Actions**: el flujo *Publicar en GitHub Pages* se ejecuta en cada `push` a `main`. Si no se ejecutó, entra al flujo y pulsa **Run workflow**.
-4. Cuando termine (palomita verde), el juego estará en:
+3. Pestaña **Actions**: el flujo *Publicar en GitHub Pages* se ejecuta en cada `push` a `main`. Si falló antes de activar Pages, ábrelo y pulsa **Re-run all jobs** (o **Run workflow**).
+4. Con la palomita verde, el juego queda en:
 
    **https://fertello29.github.io/veta-airosa/**
 
-### Alternativa sin Actions (desde una rama)
+   Si ves la versión anterior, recarga con <kbd>Ctrl</kbd> + <kbd>F5</kbd>.
 
-Si prefieres no usar Actions: **Settings → Pages → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. En ese caso borra el archivo `.github/workflows/pages.yml` (y haz commit) para que no aparezca un flujo fallido en la pestaña Actions. El archivo `.nojekyll` ya está incluido para que GitHub sirva todos los archivos tal cual.
+### Alternativa sin Actions
 
-## 5. Flujo de trabajo para cambios posteriores
+**Settings → Pages → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. En ese caso borra `.github/workflows/pages.yml` (y haz commit) para que no aparezca un flujo fallido. El archivo `.nojekyll` ya está incluido.
+
+## C. (Opcional) Cambiar el nombre del repositorio
+
+Si prefieres que la URL diga `eco-de-orion`: **Settings → General → Repository name**. Después:
+
+```bash
+git remote set-url origin https://github.com/FerTello29/eco-de-orion.git
+```
+
+La nueva dirección será `https://fertello29.github.io/eco-de-orion/` (GitHub redirige la URL anterior del repositorio, pero no la de Pages).
+
+## D. Cambios posteriores
 
 ```bash
 git add .
@@ -64,15 +60,28 @@ git commit -m "feat: descripción del cambio"
 git push
 ```
 
-Cada `push` vuelve a publicar el sitio automáticamente. Para forzar que el navegador descargue CSS/JS nuevos, incrementa el número de versión `?v=1` en las etiquetas de `index.html`.
+Cada `push` vuelve a publicar el sitio. Para forzar que el navegador descargue CSS/JS nuevos, incrementa el número `?v=2` en las etiquetas de `index.html`.
 
-## 6. Problemas comunes
+## E. Cuenta de Git
+
+Si en tu equipo hay más de una cuenta (por ejemplo `Thorium29`), revisa cuál se usa:
+
+```bash
+git config --global user.name
+git config --global user.email
+```
+
+Si Windows intenta subir con la cuenta equivocada: **Panel de control → Administrador de credenciales → Credenciales de Windows**, elimina `git:https://github.com` y vuelve a hacer `push`.
+
+Los commits están firmados como *Fernando Rosales Tello <ftello629@gmail.com>*; GitHub los asocia a la cuenta que tenga ese correo verificado.
+
+## F. Problemas comunes
 
 | Síntoma | Solución |
 |---|---|
-| Pantalla "Se necesita un servidor local" | Abriste `index.html` con doble clic. Usa Live Server o la URL de GitHub Pages. |
-| Error 404 en GitHub Pages | Espera 1–2 minutos tras el primer despliegue y revisa que la URL termine en `/veta-airosa/`. |
-| La pestaña Actions muestra error en *deploy* | En Settings → Pages la fuente debe ser **GitHub Actions**. |
-| `rejected ... fetch first` al hacer push | Creaste el repositorio con README. Ejecuta `git pull origin main --allow-unrelated-histories`, resuelve y vuelve a subir, o crea el repositorio vacío. |
-| Pantalla de carga detenida | Revisa la consola (F12). Las librerías se descargan de `cdn.jsdelivr.net`: verifica tu conexión o que la red no bloquee ese dominio. |
+| Pantalla «Se necesita un servidor local» | Abriste `index.html` con doble clic. Usa Live Server o la URL de GitHub Pages. |
+| Error 404 en GitHub Pages | Espera 1–2 minutos tras el despliegue y revisa que la URL termine en `/veta-airosa/`. |
+| Actions muestra error en *deploy* | En Settings → Pages la fuente debe ser **GitHub Actions**; luego *Re-run all jobs*. |
+| `rejected ... fetch first` | Hay commits en GitHub que no tienes en local. No uses `--force` sin revisar qué contienen. |
+| Pantalla de carga detenida | Revisa la consola (F12). Las librerías vienen de `cdn.jsdelivr.net`: verifica la conexión o que la red no bloquee ese dominio. |
 | Va lento | En Ajustes desactiva *Sombras dinámicas* y *Resplandor*. |
