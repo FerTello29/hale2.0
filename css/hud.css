@@ -303,7 +303,7 @@
   align-items: center;
   gap: 2px;
   min-width: 64px;
-  padding: 7px 8px 6px;
+  padding: 16px 8px 6px;
   border-radius: 10px;
   background: rgba(22, 16, 13, 0.82);
   border: 1px solid var(--glass-border);
@@ -328,9 +328,10 @@
 
 .action__cost {
   position: absolute;
-  top: 3px;
-  right: 5px;
-  font-size: 0.6rem;
+  top: 4px;
+  left: 5px;
+  font-size: 0.58rem;
+  line-height: 1;
   color: var(--cyan);
 }
 
@@ -690,10 +691,40 @@ body.is-touch .hud-pause-btn {
 }
 
 @media (max-height: 520px) {
-  .hud-mission { transform: scale(0.82); transform-origin: top left; }
-  .hud-map { transform: scale(0.85); transform-origin: top right; }
-  .joystick { bottom: 30px; width: 110px; height: 110px; }
-  .touch-buttons { bottom: 20px; grid-template-columns: repeat(3, 52px); }
+  .hud-mission { transform: scale(0.8); transform-origin: top left; }
+  #minimap { width: 110px; height: 110px; }
+  .hud-map { padding: 5px; }
+  .hud-map__legend { display: none; }
+  .hud-status {
+    width: 220px;
+    left: 50%;
+    top: auto;
+    bottom: 8px;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+  }
+  .stat + .stat { margin-top: 3px; }
+  .stat__label { font-size: 0.62rem; margin-bottom: 1px; }
+  .bar { height: 7px; }
+  .stat--thin .stat__label, .hud-gravity { display: none; }
+  .toasts { top: 140px; }
+  .hud-pause-btn { top: 140px; }
+  .banner { top: 30%; }
+  .joystick { bottom: 24px; width: 110px; height: 110px; }
+  .touch-buttons { bottom: 16px; grid-template-columns: repeat(3, 52px); }
   .tbtn { width: 52px; height: 52px; }
-  body.is-touch .hud-status { bottom: 8px; width: 200px; }
+}
+
+/* En pantallas táctiles la barra de estado siempre va compacta al centro inferior */
+body.is-touch .hud-status {
+  width: 220px;
+  left: 50%;
+  top: auto;
+  bottom: 8px;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+}
+body.is-touch .hud-gravity,
+body.is-touch .stat--thin .stat__label {
+  display: none;
 }

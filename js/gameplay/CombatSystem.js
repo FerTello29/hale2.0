@@ -45,6 +45,20 @@ export class CombatSystem {
     this.trajectory = new THREE.Line(geo, mat);
     this.trajectory.frustumCulled = false;
     this.trajectory.visible = false;
+    // puntos brillantes sobre la misma geometría (más legibles que una línea de 1 px)
+    this.trajectoryDots = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        color: 0x9ff4ff,
+        size: 0.16,
+        map: game.fx.createGlowSprite(0xffffff, 1).material.map,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    this.trajectoryDots.frustumCulled = false;
+    this.trajectory.add(this.trajectoryDots);
     this.marker = new THREE.Mesh(
       new THREE.RingGeometry(0.25, 0.4, 32),
       new THREE.MeshBasicMaterial({ color: 0x8ff0ff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide })

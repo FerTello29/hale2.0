@@ -150,7 +150,8 @@ function randDir(out, spread = 1, up = 0) {
 
 const PRESETS = {
   explosion: [
-    { pool: 'add', n: 70, color: [0xffd27a, 0xff6a1a], speed: [4, 13], up: 0.5, life: [0.35, 0.8], size: [1.4, 0.2], gravity: 4, drag: 2.5 },
+    { pool: 'add', n: 90, color: [0xffd27a, 0xff6a1a], speed: [4, 13], up: 0.5, life: [0.4, 0.9], size: [2.2, 0.3], gravity: 4, drag: 2.5 },
+    { pool: 'add', n: 8, color: [0xfff6d8, 0xffc070], speed: [0.2, 1.2], up: 0.3, life: [0.2, 0.35], size: [5.5, 1.5], gravity: 0, drag: 1 },
     { pool: 'add', n: 40, color: [0xfff1b0, 0xffb040], speed: [8, 20], up: 0.6, life: [0.5, 1.2], size: [0.18, 0.05], gravity: 14, drag: 0.8 },
     { pool: 'smoke', n: 22, color: [0x3b2c22, 0x6a584a], speed: [1, 4.5], up: 0.9, life: [1.4, 2.6], size: [1.2, 4.2], gravity: -1.2, drag: 1.4, alpha: 0.75 },
   ],
