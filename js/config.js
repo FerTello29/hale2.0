@@ -150,7 +150,9 @@ export const PHYSICS = {
  * Sin servidor de IA, todo funciona igual con la lógica local.
  */
 export const AI = {
-  baseUrl: '',
+  // en Vercel (o localhost con `vercel dev`) la API está en el mismo dominio;
+  // desde GitHub Pages se usa el despliegue de Vercel
+  baseUrl: typeof location !== 'undefined' && location.hostname.endsWith('github.io') ? 'https://hale2-0.vercel.app' : '',
   timeoutMs: 7000,
   tacticsInterval: 20,
 };
