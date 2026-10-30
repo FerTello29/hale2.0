@@ -1,5 +1,6 @@
 /**
- * Input — teclado, mouse (pointer lock) y controles táctiles virtuales.
+ * Input — teclado, mouse (pointer lock), controles táctiles virtuales y
+ * fuentes externas (voz, gamepad, controles de VR).
  *
  * Expone "acciones" en lugar de teclas para que el resto del juego no dependa
  * de un dispositivo concreto: down('run'), pressed('jump'), released('fire').
@@ -27,6 +28,7 @@ const KEYMAP = {
   prevWeapon: [],
   pause: ['Escape', 'KeyP'],
   help: ['KeyH'],
+  voice: ['KeyV'],
 };
 
 export class Input {
@@ -42,6 +44,10 @@ export class Input {
     this.enabled = true;
     /** Entrada de los controles táctiles (la escribe TouchControls). */
     this.virtual = { x: 0, y: 0, keys: new Set() };
+    /** Acciones mantenidas por fuentes externas: fuente → Set de acciones. */
+    this.holds = new Map();
+    /** Ejes de movimiento de fuentes externas: fuente → { x, y }. */
+    this.axes = new Map();
     this.onLockChange = null;
     this.onLockError = null;
     /** Con mouse, los clics solo cuentan como acciones si el puntero está capturado. */
@@ -118,9 +124,38 @@ export class Input {
     return KEYMAP[action] || [action];
   }
 
+  /** Una fuente externa mantiene (o suelta) una acción. */
+  setHold(source, action, on) {
+    let set = this.holds.get(source);
+    if (!set) this.holds.set(source, (set = new Set()));
+    if (on) set.add(action);
+    else set.delete(action);
+  }
+
+  releaseAll(source) {
+    this.holds.get(source)?.clear();
+    this.axes.delete(source);
+  }
+
+  /** Pulsación de un solo cuadro (equivale a pressed()). */
+  tap(action) {
+    this.virtual.keys.add(`+${action}`);
+  }
+
+  /** Liberación de un solo cuadro (equivale a released()). */
+  untap(action) {
+    this.virtual.keys.add(`-${action}`);
+  }
+
+  setAxis(source, x, y) {
+    if (!x && !y) this.axes.delete(source);
+    else this.axes.set(source, { x, y });
+  }
+
   down(action) {
     if (!this.enabled) return false;
     if (this.virtual.keys.has(action)) return true;
+    for (const set of this.holds.values()) if (set.has(action)) return true;
     return this.#codes(action).some((c) => this.keys.has(c));
   }
 
@@ -147,6 +182,10 @@ export class Input {
       if (this.down('left')) x -= 1;
       x += this.virtual.x;
       y += this.virtual.y;
+      for (const a of this.axes.values()) {
+        x += a.x;
+        y += a.y;
+      }
     }
     const len = Math.hypot(x, y);
     if (len > 1) {
@@ -185,6 +224,8 @@ export class Input {
     this.virtual.keys.clear();
     this.virtual.x = 0;
     this.virtual.y = 0;
+    for (const set of this.holds.values()) set.clear();
+    this.axes.clear();
     this.lookDX = 0;
     this.lookDY = 0;
   }

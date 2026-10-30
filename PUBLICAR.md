@@ -1,87 +1,106 @@
-# Publicar ECO DE ORIÓN en GitHub y GitHub Pages
+# Publicar ECO DE ORIÓN (Vercel + GitHub Pages)
 
-Esta guía asume Windows con Git instalado y la cuenta de GitHub **FerTello29**. El proyecto trae su historial de commits en la carpeta oculta `.git`: la versión 2 (*Eco de Orión*) está **encima** de los 17 commits de la versión 1 (*Veta Airosa*) que ya están en `https://github.com/FerTello29/veta-airosa`.
+Repositorio: **https://github.com/FerTello29/hale2.0**
 
-> Importante: extrae el ZIP completo. Si copias solo los archivos visibles, se pierde la carpeta oculta `.git` y con ella el historial.
+El juego se puede publicar de dos formas:
 
-## A. Actualizar el repositorio existente (`veta-airosa`) con la versión 2
+| Opción | URL | IA (OpenAI) | Voz | VR |
+|---|---|---|---|---|
+| **Vercel (recomendada)** | `https://<tu-proyecto>.vercel.app` | ✅ la API key queda oculta en el servidor | ✅ todas las variantes, también en Meta Quest | ✅ |
+| GitHub Pages | `https://fertello29.github.io/hale2.0/` | Solo si apuntas a tu despliegue de Vercel (sección C) | Reconocimiento del navegador (Chrome, Edge, Android) | ✅ |
 
-1. Cierra VS Code y cualquier terminal abierta en la carpeta anterior.
-2. Renombra la carpeta anterior como respaldo, por ejemplo `veta-airosa-v1`.
-3. Extrae el ZIP en el mismo lugar (por ejemplo el Escritorio). Debe quedar una carpeta `veta-airosa` con `index.html` y la carpeta oculta `.git`.
-4. Abre una terminal en la nueva carpeta (en VS Code: *Terminal → New Terminal*) y revisa:
+> **Nunca escribas tu API key de OpenAI en el código ni la subas a GitHub.** Solo va en las variables de entorno de Vercel (o en `.env.local`, que Git ignora).
 
-   ```bash
-   git status            # "On branch main" y "nothing to commit"
-   git log --oneline     # los commits nuevos arriba y los 17 de la v1 abajo
+---
+
+## A. Subir los cambios a GitHub
+
+```bash
+cd C:\Users\ftell\hale2.0
+git status
+git push origin main
+```
+
+## B. Desplegar en Vercel con la API key oculta
+
+1. Entra a <https://vercel.com> con tu cuenta de GitHub.
+2. **Add New… → Project → Import** el repositorio `FerTello29/hale2.0`.
+3. Configuración del proyecto:
+   - **Framework Preset:** `Other`
+   - **Build Command:** vacío (no hay compilación)
+   - **Output Directory:** vacío o `.` (la raíz)
+4. En **Environment Variables** agrega:
+
+   | Nombre | Valor |
+   |---|---|
+   | `OPENAI_API_KEY` | tu clave `sk-…` de <https://platform.openai.com/api-keys> |
+   | `OPENAI_MODEL` | `gpt-4o-mini` (opcional, es el valor por defecto) |
+   | `OPENAI_TRANSCRIBE_MODEL` | `whisper-1` (opcional) |
+   | `ALLOWED_ORIGINS` | `https://fertello29.github.io` (solo si también juegas desde GitHub Pages) |
+
+5. **Deploy.** Cada `push` a `main` vuelve a desplegar automáticamente.
+6. Comprueba que funciona: abre `https://<tu-proyecto>.vercel.app/api/health`. Debe responder `{"ok":true,"ai":true,...}`. La clave nunca aparece en esa respuesta.
+7. En el juego, **Ajustes → Voz, IA y realidad virtual** debe decir «IA conectada».
+
+### Proteger tu saldo de OpenAI
+
+- Las funciones aceptan solo peticiones desde tu propio dominio, `localhost` y lo que pongas en `ALLOWED_ORIGINS`, y limitan las solicitudes por IP (comandos 30/min, táctica 8/min, transcripción 20/min).
+- Esa protección es básica: alguien con `curl` podría hacer peticiones dentro del límite. **Configura un límite de gasto mensual** en <https://platform.openai.com/settings/organization/limits> (por ejemplo, 5 USD).
+- Si sospechas que se filtró la clave, revócala en OpenAI, crea otra y actualízala en Vercel (**Settings → Environment Variables → Redeploy**).
+
+## C. Usar la IA desde GitHub Pages (opcional)
+
+GitHub Pages solo sirve archivos estáticos, así que no tiene `/api`. Para usar la IA desde ahí:
+
+1. En Vercel, agrega `ALLOWED_ORIGINS=https://fertello29.github.io`.
+2. En `js/config.js`, pon la URL de tu despliegue:
+
+   ```js
+   export const AI = {
+     baseUrl: 'https://<tu-proyecto>.vercel.app',
+     ...
+   };
    ```
 
-5. Conecta el repositorio remoto y sube:
+3. Haz commit y push.
 
-   ```bash
-   git remote add origin https://github.com/FerTello29/veta-airosa.git
-   git push -u origin main
-   ```
+Si `baseUrl` está vacío, el juego busca `/api` en su propio dominio. Si no lo encuentra, usa la lógica local sin mostrar errores.
 
-   Si responde que `origin` ya existe: `git remote set-url origin https://github.com/FerTello29/veta-airosa.git` y repite el `push`.
+GitHub Pages está configurado como **Deploy from a branch** (`main`, raíz). El flujo de Actions que fallaba se eliminó: ya no hace falta.
 
-   Como la versión 2 continúa el mismo historial, el `push` es un avance directo (*fast-forward*): **no** hace falta `--force`. Si GitHub lo rechaza con `fetch first`, significa que en GitHub hay commits que no están aquí (por ejemplo, un README editado en la web); en ese caso avísame antes de forzar nada.
+## D. Probar en tu computadora
 
-## B. Activar GitHub Pages (solo la primera vez)
-
-1. En el repositorio: **Settings → Pages**.
-2. En **Build and deployment → Source** elige **GitHub Actions**.
-3. Pestaña **Actions**: el flujo *Publicar en GitHub Pages* se ejecuta en cada `push` a `main`. Si falló antes de activar Pages, ábrelo y pulsa **Re-run all jobs** (o **Run workflow**).
-4. Con la palomita verde, el juego queda en:
-
-   **https://fertello29.github.io/veta-airosa/**
-
-   Si ves la versión anterior, recarga con <kbd>Ctrl</kbd> + <kbd>F5</kbd>.
-
-### Alternativa sin Actions
-
-**Settings → Pages → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. En ese caso borra `.github/workflows/pages.yml` (y haz commit) para que no aparezca un flujo fallido. El archivo `.nojekyll` ya está incluido.
-
-## C. (Opcional) Cambiar el nombre del repositorio
-
-Si prefieres que la URL diga `eco-de-orion`: **Settings → General → Repository name**. Después:
+Sin IA (solo archivos estáticos):
 
 ```bash
-git remote set-url origin https://github.com/FerTello29/eco-de-orion.git
+npm start            # http://localhost:8080
 ```
 
-La nueva dirección será `https://fertello29.github.io/eco-de-orion/` (GitHub redirige la URL anterior del repositorio, pero no la de Pages).
-
-## D. Cambios posteriores
+Con IA (funciones de Vercel en local):
 
 ```bash
-git add .
-git commit -m "feat: descripción del cambio"
-git push
+copy .env.example .env.local     # y pon tu clave en .env.local
+npm run ia-local                 # npx vercel dev → http://localhost:3000
 ```
 
-Cada `push` vuelve a publicar el sitio. Para forzar que el navegador descargue CSS/JS nuevos, incrementa el número `?v=2` en las etiquetas de `index.html`.
+La primera vez, `vercel dev` pide iniciar sesión y vincular el proyecto.
 
-## E. Cuenta de Git
+## E. Jugar en realidad virtual
 
-Si en tu equipo hay más de una cuenta (por ejemplo `Thorium29`), revisa cuál se usa:
-
-```bash
-git config --global user.name
-git config --global user.email
-```
-
-Si Windows intenta subir con la cuenta equivocada: **Panel de control → Administrador de credenciales → Credenciales de Windows**, elimina `git:https://github.com` y vuelve a hacer `push`.
-
-Los commits están firmados como *Fernando Rosales Tello <ftello629@gmail.com>*; GitHub los asocia a la cuenta que tenga ese correo verificado.
+- **Meta Quest 3 (o 2/Pro):** abre la URL de Vercel en el **navegador del Quest** → elige una operación → **Jugar en visor VR**. Para la voz, mantén **X** en el control izquierdo mientras hablas: se transcribe con OpenAI porque el navegador del Quest no tiene reconocimiento de voz propio.
+- **Lentes VR Box (celular):** abre la URL en **Chrome para Android** (o Safari en iPhone) → **Lentes VR Box** → acepta los permisos de giroscopio y micrófono → coloca el teléfono en horizontal en el visor. Controla a NOVA-7 con la voz («avanza», «dispara», «ve al objetivo», «alto»), con un control Bluetooth o tocando la pantalla para disparar. Di «pausa» para salir del modo estéreo.
+- La voz y la VR necesitan **HTTPS**. Vercel y GitHub Pages ya lo tienen; `localhost` también funciona.
 
 ## F. Problemas comunes
 
 | Síntoma | Solución |
 |---|---|
-| Pantalla «Se necesita un servidor local» | Abriste `index.html` con doble clic. Usa Live Server o la URL de GitHub Pages. |
-| Error 404 en GitHub Pages | Espera 1–2 minutos tras el despliegue y revisa que la URL termine en `/veta-airosa/`. |
-| Actions muestra error en *deploy* | En Settings → Pages la fuente debe ser **GitHub Actions**; luego *Re-run all jobs*. |
-| `rejected ... fetch first` | Hay commits en GitHub que no tienes en local. No uses `--force` sin revisar qué contienen. |
-| Pantalla de carga detenida | Revisa la consola (F12). Las librerías vienen de `cdn.jsdelivr.net`: verifica la conexión o que la red no bloquee ese dominio. |
-| Va lento | En Ajustes desactiva *Sombras dinámicas* y *Resplandor*. |
+| «Sin servidor de IA» en Ajustes | Estás en GitHub Pages o en `npm start`. Usa Vercel o configura `AI.baseUrl` (sección C). |
+| «Servidor de IA sin API key» | Falta `OPENAI_API_KEY` en Vercel o no hiciste *Redeploy* después de agregarla. |
+| `/api/health` da 404 en Vercel | Revisa que el preset sea `Other` y que la carpeta `api/` esté en el repositorio. |
+| La voz no responde | Acepta el permiso del micrófono. En Firefox y Quest se necesita la IA (Vercel) para transcribir. |
+| No aparece «Jugar en visor VR» | El navegador no tiene WebXR. Usa el navegador del Quest (o Chrome/Edge con un visor de PC conectado). |
+| VR Box: la imagen no se mueve con la cabeza | En iPhone acepta el permiso de «movimiento y orientación». La página debe estar en HTTPS. |
+| Pantalla «Se necesita un servidor local» | Abriste `index.html` con doble clic. Usa `npm start`, Live Server o la URL publicada. |
+| Va lento (sobre todo en VR) | En Ajustes desactiva *Sombras dinámicas*. En VR el resplandor se desactiva solo. |
+| `rejected ... fetch first` al hacer push | Hay commits en GitHub que no tienes en local: `git pull --rebase` y vuelve a hacer push. No uses `--force` sin revisar. |

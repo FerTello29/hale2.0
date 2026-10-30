@@ -18,3 +18,9 @@ desktop.ini
 __pycache__/
 *.pyc
 _preview*
+
+# Secretos: la API key de OpenAI solo vive en Vercel o en .env.local
+.env
+.env.*
+!.env.example
+.vercel/

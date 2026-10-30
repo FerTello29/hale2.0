@@ -286,7 +286,7 @@ export class Level2 extends LevelBase {
       this.phase = 'gate';
       this.setWaypoint(null);
       this.gate.unseal();
-      setTimeout(() => this.gate.openDoors(), 1500);
+      this.game.after(1.5, () => this.gate.openDoors());
     }
   }
 
@@ -350,7 +350,7 @@ export class Level2 extends LevelBase {
       this.objective('enter', { done: true });
       game.player.controlEnabled = false;
       this.addScore(300, 'Templo alcanzado');
-      setTimeout(() => this.complete(), 900);
+      this.game.after(0.9, () => this.complete());
     });
   }
 

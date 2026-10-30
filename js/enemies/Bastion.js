@@ -166,7 +166,7 @@ export class Bastion extends Enemy {
     let i = 0;
     for (const c of this.cannons) {
       const origin = c.getWorldPosition(new THREE.Vector3());
-      setTimeout(() => {
+      this.game.after(i * 0.18, () => {
         if (this.dead || !player || player.dead) return;
         const dir = player.chestPosition(new THREE.Vector3()).sub(origin).normalize();
         const err = 0.05 / game.difficulty.accuracy;
@@ -174,7 +174,7 @@ export class Bastion extends Enemy {
         dir.z += (Math.random() - 0.5) * err;
         game.addEntity(new EnemyBolt(game, origin, dir.normalize().multiplyScalar(20), 10, 0xff2bd6));
         game.audio.play('enemyShot', origin);
-      }, i * 180);
+      });
       i++;
     }
   }
@@ -206,9 +206,9 @@ export class Bastion extends Enemy {
     game.fx.burst('smallExplosion', p);
     game.audio.play('bastionDie', p);
     if (this.shield) this.shield.visible = false;
-    setTimeout(() => {
+    this.game.after(0.9, () => {
       if (!this.alive) return;
       game.damage.explode(this.currPos.clone(), { radius: 4, damage: 40, deltaV: 10, source: 'player', small: true, color: 0xff4fd8, selfFactor: 0.4 });
-    }, 900);
+    });
   }
 }

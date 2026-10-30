@@ -20,6 +20,7 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _aimOrigin = new THREE.Vector3();
 const _perp1 = new THREE.Vector3();
 const _perp2 = new THREE.Vector3();
 const DYNAMIC_QUERY = groups(0xffff, G.PROP | G.ENEMY | G.DEBRIS);
@@ -187,14 +188,16 @@ export class WeaponSystem {
   // ================================================================ punto de mira
   #updateAimPoint() {
     const { game } = this;
-    const cam = game.camera;
-    const dir = cam.getWorldDirection(_a);
-    const hit = game.physics.raycast(cam.position, dir, 220, {
+    // cámara en pantalla normal; control derecho dentro del visor VR
+    const origin = _aimOrigin;
+    const dir = _a;
+    game.aimRay(origin, dir);
+    const hit = game.physics.raycast(origin, dir, 220, {
       groups: COLLISION.aimQuery,
       excludeCollider: game.player?.collider,
     });
     if (hit && hit.distance > 1.2) this.aimPoint.copy(hit.point);
-    else this.aimPoint.copy(cam.position).addScaledVector(dir, 220);
+    else this.aimPoint.copy(origin).addScaledVector(dir, 220);
     this.aimTarget = hit?.entity ?? null;
   }
 
@@ -347,7 +350,10 @@ export class WeaponSystem {
     game.audio.play(d.sound, muzzle);
     game.cameraRig.kick(d.recoil);
     game.bus.emit('noise', { pos: muzzle, radius: d.id === 'rail' ? 45 : 32 });
-    if (this.state.mag === 0 && this.state.reserve > 0) setTimeout(() => this.game.state === 'playing' && this.startReload(), 180);
+    if (this.state.mag === 0 && this.state.reserve > 0) {
+      const id = this.current;
+      game.after(0.18, () => this.current === id && this.startReload());
+    }
   }
 
   #trace(origin, dir, d) {
@@ -423,8 +429,8 @@ export class WeaponSystem {
   #grenadeLaunch() {
     const { game } = this;
     const player = game.player;
-    const cam = game.camera;
-    const dir = cam.getWorldDirection(new THREE.Vector3());
+    const dir = new THREE.Vector3();
+    game.aimRay(new THREE.Vector3(), dir);
     const fwd = game.cameraRig.forward(_a);
     const origin = player.chestPosition(new THREE.Vector3()).addScaledVector(fwd, 0.5);
     origin.y += 0.35;

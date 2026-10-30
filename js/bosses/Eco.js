@@ -283,7 +283,7 @@ export class Eco extends PhysicsEntity {
       if (this.timers.ring <= 0) {
         this.timers.ring = this.phase === 3 ? 8 : 11;
         this.#ring();
-        if (this.phase === 3) setTimeout(() => !this.dead && this.#ring(), 1400);
+        if (this.phase === 3) this.game.after(1.4, () => !this.dead && this.#ring());
       }
       if (this.timers.laser <= 0 && !this.laser) {
         this.timers.laser = this.phase === 3 ? 4.5 : 6;
@@ -302,14 +302,14 @@ export class Eco extends PhysicsEntity {
     const { game } = this;
     const origin = this.#eyePos(new THREE.Vector3());
     for (let i = 0; i < n; i++) {
-      setTimeout(() => {
+      this.game.after(i * 0.26, () => {
         if (this.dead || game.state !== 'playing') return;
         const o = origin.clone().add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 3));
         const orb = new HomingOrb(game, o, 18);
         orb.vel.set((Math.random() - 0.5) * 8, 3 + Math.random() * 3, (Math.random() - 0.5) * 8);
         game.addEntity(orb);
         game.audio.play('homingLaunch', o);
-      }, i * 260);
+      });
     }
   }
 
@@ -330,11 +330,11 @@ export class Eco extends PhysicsEntity {
       if (!ok) continue;
       const y = heightAt(x, z);
       const target = new THREE.Vector3(x, y, z);
-      setTimeout(() => {
+      this.game.after(0.15 + i * 0.12, () => {
         if (this.dead || game.state !== 'playing') return;
         const origin = target.clone().setY(y + 16);
         game.addEntity(new Lob(game, origin, new THREE.Vector3(0, -8, 0), 'shard', { warnAt: target, damageMult: 1 }));
-      }, 150 + i * 120);
+      });
     }
     game.audio.play('crystalRain', player.currPos);
   }

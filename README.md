@@ -10,7 +10,8 @@
 
 Videojuego 3D de acción en tercera persona para la Web. Controlas a **NOVA-7**, una unidad de asalto blindada, en **Orión IV**: una luna selvática nocturna, cubierta de ruinas de una civilización extinta, donde una mente de cristal llamada **el Eco** «recuerda» todo lo que toca. Campaña de **3 operaciones**, cada una con su **jefe**; la última es el enfrentamiento con el jefe final.
 
-- **Demo:** `https://fertello29.github.io/veta-airosa/` (disponible cuando GitHub Pages esté activado en el repositorio).
+- **Demo:** <https://fertello29.github.io/hale2.0/> (GitHub Pages, sin IA) · versión completa con IA en Vercel (ver [PUBLICAR.md](PUBLICAR.md)).
+- **Nuevo en v2.1:** control de NOVA-7 **por voz**, **realidad virtual** (Meta Quest 3 con WebXR y lentes **VR Box** para celular), **IA con OpenAI** para interpretar órdenes y dirigir la táctica (la API key queda oculta en funciones de **Vercel**), soporte para **gamepad** y **dificultad más baja**.
 - **Autor:** Fernando Rosales Tello — Ingeniería en Tecnologías de la Información y Comunicaciones, TecNM campus Pachuca.
 - **Sin herramientas de compilación:** HTML + CSS + JavaScript (módulos ES). Three.js y Rapier se cargan desde CDN mediante *import maps*.
 - **Universo 100 % original:** historia, personajes, criaturas, armas y escenarios se crearon para este proyecto; no usa nombres, personajes ni diseños de franquicias existentes.
@@ -24,19 +25,22 @@ Videojuego 3D de acción en tercera persona para la Web. Controlas a **NOVA-7**,
 3. [Jefes y enemigos](#jefes-y-enemigos)
 4. [Arsenal y habilidades](#arsenal-y-habilidades)
 5. [Controles](#controles)
-6. [Mecánicas de juego](#mecánicas-de-juego)
-7. [Tecnologías](#tecnologías)
-8. [Arquitectura y estructura del proyecto](#arquitectura-y-estructura-del-proyecto)
-9. [Física con Rapier 3D](#física-con-rapier-3d)
-10. [Modelos, animaciones, texturas, audio y música](#modelos-animaciones-texturas-audio-y-música)
-11. [Ejecutar en local](#ejecutar-en-local)
-12. [Publicar y actualizar en GitHub Pages](#publicar-y-actualizar-en-github-pages)
-13. [Cumplimiento de requisitos](#cumplimiento-de-requisitos)
-14. [Pruebas realizadas](#pruebas-realizadas)
-15. [Rendimiento y compatibilidad](#rendimiento-y-compatibilidad)
-16. [Créditos y licencias](#créditos-y-licencias)
-17. [Historial de versiones](#historial-de-versiones)
-18. [Capturas](#capturas)
+6. [Control por voz](#control-por-voz)
+7. [Realidad virtual](#realidad-virtual)
+8. [Inteligencia artificial (OpenAI + Vercel)](#inteligencia-artificial-openai--vercel)
+9. [Mecánicas de juego](#mecánicas-de-juego)
+10. [Tecnologías](#tecnologías)
+11. [Arquitectura y estructura del proyecto](#arquitectura-y-estructura-del-proyecto)
+12. [Física con Rapier 3D](#física-con-rapier-3d)
+13. [Modelos, animaciones, texturas, audio y música](#modelos-animaciones-texturas-audio-y-música)
+14. [Ejecutar en local](#ejecutar-en-local)
+15. [Publicar (Vercel y GitHub Pages)](#publicar-vercel-y-github-pages)
+16. [Cumplimiento de requisitos](#cumplimiento-de-requisitos)
+17. [Pruebas realizadas](#pruebas-realizadas)
+18. [Rendimiento y compatibilidad](#rendimiento-y-compatibilidad)
+19. [Créditos y licencias](#créditos-y-licencias)
+20. [Historial de versiones](#historial-de-versiones)
+21. [Capturas](#capturas)
 
 ---
 
@@ -72,9 +76,11 @@ Cada operación tiene una **sesión informativa** (historia, objetivos, hostiles
 
 | Dificultad | Vida enemiga | Daño recibido | Número de enemigos | Vida de jefes | Suministros |
 |---|---|---|---|---|---|
-| Recluta | ×0.8 | ×0.55 | ×0.8 | ×0.8 | ×1.3 |
-| Veterano | ×1.0 | ×1.0 | ×1.0 | ×1.0 | ×1.0 |
-| Leyenda | ×1.3 | ×1.5 | ×1.25 | ×1.25 | ×0.8 |
+| Recluta | ×0.65 | ×0.35 | ×0.65 | ×0.6 | ×1.6 |
+| Veterano | ×0.85 | ×0.65 | ×0.85 | ×0.8 | ×1.25 |
+| Leyenda | ×1.1 | ×1.1 | ×1.05 | ×1.05 | ×0.95 |
+
+En la v2.1 se bajó la dificultad en los tres niveles: además de la tabla, el escudo de NOVA-7 sube de 75 a 90, se recarga antes (2,8 s en lugar de 3,5 s) y más rápido, y los enemigos fallan más (menor precisión). El **director táctico** puede suavizar todavía más la partida si el jugador está en apuros (ver [Inteligencia artificial](#inteligencia-artificial-openai--vercel)).
 
 ## Jefes y enemigos
 
@@ -114,7 +120,7 @@ La IA percibe al jugador con **raycasts de línea de visión**, se alerta en gru
 | <kbd>F</kbd> | **Golpe** | Empuja objetos, rompe cajas y aturde enemigos. |
 | <kbd>Q</kbd> | **Pulso de choque** | Impulso radial de 7,5 m (recarga de 9 s): aturde y derriba drones. |
 
-**Salud:** escudo recargable (se regenera tras 3,5 s sin recibir daño) + integridad (botiquines). **Estamina** para correr.
+**Salud:** escudo recargable (se regenera tras 2,8 s sin recibir daño) + integridad (botiquines). **Estamina** para correr.
 
 ## Controles
 
@@ -134,7 +140,83 @@ La IA percibe al jugador con **raycasts de línea de visión**, se alerta en gru
 | <kbd>H</kbd> | Ayuda con todos los controles |
 | <kbd>Esc</kbd> / <kbd>P</kbd> | Pausa |
 
+**Gamepad** (Xbox, PlayStation o el control Bluetooth de un visor VR Box): stick izq. mover · stick der. cámara · RT disparar · LT apuntar · A saltar · B golpe · X recargar · Y siguiente arma · LB granada · RB pulso · L3 correr · R3 interactuar · Start pausa · Select voz.
+
 **Pantallas táctiles:** joystick virtual, arrastre para la cámara y botones de disparo, apuntar, salto, recarga, granada, cambio de arma, golpe, pulso, correr e interactuar. En vertical se pide girar el teléfono. Los controles están visibles en el menú, en la pausa, en el HUD (habilidades y teclas) y en el panel de ayuda (<kbd>H</kbd>).
+
+## Control por voz
+
+Pulsa <kbd>V</kbd> (o el botón 🎙 del HUD, o activa *Comandos de voz* en Ajustes) y habla en español. El reconocimiento usa la **Web Speech API** del navegador (Chrome, Edge, Safari, Chrome para Android). En los navegadores que no la tienen (**Meta Quest Browser**, Firefox) se usa «presiona para hablar»: mientras mantienes <kbd>V</kbd>, el botón 🎙 o **X** en el control izquierdo del Quest, el audio se graba y se transcribe con OpenAI en el servidor.
+
+| Di… | NOVA-7… |
+|---|---|
+| «avanza», «atrás», «izquierda», «derecha» (+ «3 segundos») | se mueve (hasta que digas «alto», o el tiempo indicado) |
+| «corre» / «camina» | corre o camina |
+| «alto», «detente», «para» | se detiene y deja de disparar |
+| «dispara», «ráfaga», «fuego sin parar», «alto el fuego» | dispara (respeta el modo del arma: automático, semiautomático o carga del orbe) |
+| «salta», «recarga», «golpea», «pulso» | acciones |
+| «granada», «granada de singularidad» | apunta y lanza una granada |
+| «rifle», «dispersor», «lanzaorbes», «riel», «arma 2», «siguiente arma» | cambia de arma |
+| «gira a la izquierda 90», «media vuelta», «mira arriba» | gira o inclina la cámara |
+| «ve al objetivo», «llévame a la baliza» | **piloto automático** hacia el marcador del objetivo (salta si se atora) |
+| «usa», «activa la baliza», «aborda» | interactúa (como <kbd>E</kbd>) |
+| «pausa», «continúa», «ayuda», «sal de realidad virtual» | control de la partida |
+
+Varias órdenes se encadenan: «dispara y salta», «gira a la derecha y avanza 2 segundos». Las órdenes cortas («alto», «salta») se ejecutan con el resultado provisional del reconocedor, sin esperar a que termines de hablar. Si una frase no coincide con ninguna orden conocida («cúbrete detrás de algo», «flanquea por la derecha»), la **IA** la convierte en acciones del juego (ver más abajo).
+
+Código: `js/ai/VoiceControl.js` (micrófono y modos) y `js/ai/VoiceCommands.js` (intérprete y ejecutor).
+
+## Realidad virtual
+
+### Meta Quest 3 (WebXR)
+
+Abre el juego en el navegador del Quest → elige una operación → **Jugar en visor VR** (también en la pausa: **Continuar en visor VR**).
+
+- Vista en **tercera persona** (detrás de NOVA-7) o **primera persona** (clic en el stick derecho o en Ajustes; marea menos).
+- Caminas hacia donde miras, **giro por pasos de 30°** para evitar mareo y apuntas con el **láser del control derecho** (retícula roja sobre enemigos). Los controles vibran al disparar, al acertar y al recibir daño.
+- HUD 3D bajo la mirada: objetivo, escudo, integridad, munición, jefe, radio y voz.
+
+| Control izquierdo | | Control derecho | |
+|---|---|---|---|
+| Stick | Mover | Gatillo | Disparar |
+| Clic del stick | Correr | Grip | Golpe |
+| Gatillo | Granada (mantener y soltar) | A | Saltar |
+| Grip | Interactuar / pulso | B | Recargar |
+| X (mantener) | Hablar (voz) | Stick ←/→ | Girar 30° |
+| Y | Pausa | Stick ↑/↓ | Cambiar arma |
+| | | Clic del stick | 1.ª / 3.ª persona |
+
+En pausa: gatillo derecho o Y para continuar, B para salir de VR. Al terminar o perder una operación se sale de VR para mostrar los resultados.
+
+### Lentes VR Box para celular
+
+En el celular: elige una operación → **Lentes VR Box** → acepta giroscopio y micrófono → coloca el teléfono en horizontal en el visor.
+
+- Pantalla dividida en estéreo (`StereoEffect`) y cámara controlada por el **giroscopio** (`DeviceOrientationEvent`).
+- Como no puedes tocar los controles con el teléfono dentro del visor, la **voz** se activa sola: «avanza», «ve al objetivo», «dispara», «alto». También puedes **tocar la pantalla** (o el botón del visor) para disparar, o usar un **control Bluetooth**.
+- Di «pausa» para salir del estéreo y ver el menú.
+
+Código: `js/xr/XRMode.js`, `js/xr/CardboardMode.js`, `js/xr/VRHud.js`.
+
+## Inteligencia artificial (OpenAI + Vercel)
+
+La IA toma dos tipos de decisiones:
+
+1. **Director táctico** (`js/ai/TacticalAI.js`): cada 20 s envía un resumen de la partida (salud, escudo, daño reciente, enemigos cerca, munición, jefe y su vida) y la IA **decide** cuánto daño y puntería tienen los enemigos, cuántos suministros sueltan y si llegan refuerzos completos. También decide si la estación Vigía **lanza un botiquín, munición o granadas** junto a NOVA-7 y qué **consejo táctico** da la Cmdte. Ruiz por radio (por ejemplo, el punto débil del jefe). Todo valor se acota en el cliente: la IA **solo puede facilitar** la partida, nunca hacerla más difícil que la dificultad elegida.
+2. **Interpretación de órdenes** (`/api/command`): convierte frases libres en acciones válidas del juego.
+
+Sin servidor de IA (GitHub Pages, sin Internet), ambas funciones siguen trabajando con **lógica local**: el intérprete de órdenes en español y una heurística que toma las mismas decisiones tácticas.
+
+**API key oculta:** el navegador nunca ve la clave. Llama a funciones serverless de **Vercel** (`api/`), que la leen de la variable de entorno `OPENAI_API_KEY`:
+
+| Endpoint | Uso | Modelo |
+|---|---|---|
+| `GET /api/health` | ¿Hay servidor y clave? (nunca devuelve la clave) | — |
+| `POST /api/command` | Frase → acciones `{ do: 'move', dir: 'back' }`… | `gpt-4o-mini` (configurable) |
+| `POST /api/tactics` | Estado de la partida → decisión táctica | `gpt-4o-mini` |
+| `POST /api/transcribe` | Audio → texto (Quest, Firefox) | `whisper-1` |
+
+Las funciones solo aceptan peticiones desde el propio dominio (más `ALLOWED_ORIGINS`), limitan las solicitudes por IP, acotan el tamaño de las entradas y responden JSON validado. Guía de despliegue: **[PUBLICAR.md](PUBLICAR.md)**.
 
 ## Mecánicas de juego
 
@@ -182,7 +264,13 @@ Bajas (acechador 60, centinela 80, espectro 100, bastión 250, tiro a la cabeza 
 | [Bootstrap](https://getbootstrap.com) | 5.3.3 | HUD, pantallas, modales, formularios de ajustes, diseño responsivo. |
 | [Bootstrap Icons](https://icons.getbootstrap.com) | 1.11.3 | Iconografía. |
 | Web Audio API | nativa | Efectos de sonido sintetizados y música procedural adaptativa. |
-| Canvas 2D | nativa | Minimapa. |
+| Canvas 2D | nativa | Minimapa y HUD de realidad virtual. |
+| WebXR Device API | nativa | Realidad virtual en Meta Quest (`renderer.xr`, controles Touch, vibración). |
+| `StereoEffect` + DeviceOrientation | Three.js r170 / nativa | Lentes VR Box para celular. |
+| Web Speech API · MediaRecorder | nativa | Comandos de voz y «presiona para hablar». |
+| Gamepad API | nativa | Controles Xbox, PlayStation y Bluetooth. |
+| OpenAI API (`gpt-4o-mini`, `whisper-1`) | — | Director táctico, interpretación de órdenes y transcripción. |
+| Vercel Functions | Node.js 18+ | Backend que oculta la API key (`api/`). |
 | Python + NumPy/SciPy/Pillow | — | Generación de texturas (`tools/generate_textures.py`). |
 | Node.js + `GLTFExporter` | — | Exportación de `props.glb` (`tools/build-props.mjs`). |
 
@@ -205,13 +293,15 @@ La versión *compat* de Rapier trae el WebAssembly embebido, por lo que funciona
 ## Arquitectura y estructura del proyecto
 
 ```
-veta-airosa/                       (nombre del repositorio)
+hale2.0/                           (nombre del repositorio)
 ├── index.html                     # Import map, HUD, pantallas y modales
 ├── css/  fonts.css · main.css · hud.css · screens.css
 ├── js/
 │   ├── main.js                    # Punto de entrada
 │   ├── config.js                  # Grupos de colisión, armas, granadas, dificultades, puntaje
-│   ├── core/        Game.js (estados, campaña, bucle) · AssetLibrary.js · Input.js · Settings.js · EventBus.js
+│   ├── core/        Game.js (estados, campaña, bucle) · AssetLibrary.js · Input.js · GamepadInput.js · Settings.js · EventBus.js
+│   ├── ai/          AIClient.js · TacticalAI.js · VoiceControl.js · VoiceCommands.js
+│   ├── xr/          XRMode.js (Meta Quest) · CardboardMode.js (VR Box) · VRHud.js
 │   ├── physics/     PhysicsWorld.js (paso fijo, interpolación, eventos, raycasts, impulsos)
 │   ├── world/       TerrainField.js · Terrain.js · Environment.js · Vegetation.js · PropFactory.js
 │   ├── levels/      LevelBase.js · Level1.js · Level2.js · Level3.js
@@ -223,11 +313,12 @@ veta-airosa/                       (nombre del repositorio)
 │   ├── camera/      ThirdPersonCamera.js
 │   ├── fx/          Effects.js · AudioManager.js (efectos + MusicDirector)
 │   └── ui/          HUD.js · Minimap.js · Screens.js · TouchControls.js
+├── api/                           # Funciones de Vercel: health · command · tactics · transcribe
+├── server/ai.js                   # OpenAI, CORS y límite de solicitudes (solo en el servidor)
 ├── assets/  models/ (RobotExpressive.glb, props.glb) · textures/ · fonts/ · img/
 ├── docs/screenshots/              # Capturas de este README
 ├── tools/                         # Regenerar texturas y props.glb
-├── .github/workflows/pages.yml    # Publicación automática en GitHub Pages
-└── README.md · PUBLICAR.md · LICENSE · package.json · .editorconfig · .gitignore · .nojekyll
+└── README.md · PUBLICAR.md · LICENSE · package.json · vercel.json · .env.example · .vercelignore · .editorconfig · .gitignore · .nojekyll
 ```
 
 ### Programación orientada a objetos
@@ -343,16 +434,18 @@ Los módulos ES y los GLB **no funcionan abriendo `index.html` con doble clic** 
 - **Node.js:** `npx http-server . -p 8080 -c-1` (o `npm start`) → `http://localhost:8080`.
 - **Python:** `python -m http.server 8080` → `http://localhost:8080`.
 
-Se necesita Internet para descargar Three.js, Rapier y Bootstrap desde jsDelivr. Agrega `?debug` a la URL para exponer `window.game` en la consola.
+Se necesita Internet para descargar Three.js, Rapier y Bootstrap desde jsDelivr. Agrega `?debug` a la URL para exponer `window.game` en la consola (por ejemplo, `game.voice.handleText('avanza')`) y `?vrbox` para mostrar el botón de lentes VR Box en una PC.
 
-## Publicar y actualizar en GitHub Pages
+**Con IA en local:** copia `.env.example` como `.env.local`, pon tu clave y ejecuta `npm run ia-local` (`vercel dev`, en `http://localhost:3000`). Sin `.env.local`, el juego funciona igual con la lógica local.
 
-La guía paso a paso está en **[PUBLICAR.md](PUBLICAR.md)** (incluye cómo subir esta versión encima del repositorio existente `veta-airosa`). Resumen:
+## Publicar (Vercel y GitHub Pages)
 
-1. **Settings → Pages → Build and deployment → Source: GitHub Actions.** El flujo `.github/workflows/pages.yml` publica en cada `push` a `main`.
-2. El juego queda en `https://fertello29.github.io/veta-airosa/`.
+La guía paso a paso está en **[PUBLICAR.md](PUBLICAR.md)**. Resumen:
 
-Todas las rutas son **relativas**, así que funciona en la subcarpeta `/veta-airosa/` de GitHub Pages.
+1. **Vercel (con IA):** importa el repositorio en Vercel (preset *Other*, sin build), agrega `OPENAI_API_KEY` en *Environment Variables* y despliega. Cada `push` a `main` se vuelve a publicar.
+2. **GitHub Pages (sin IA):** *Settings → Pages → Deploy from a branch → `main` / root*. Queda en <https://fertello29.github.io/hale2.0/>. Para usar la IA desde ahí, pon la URL de Vercel en `AI.baseUrl` (`js/config.js`).
+
+Todas las rutas son **relativas**, así que el juego funciona en la raíz de Vercel y en la subcarpeta `/hale2.0/` de GitHub Pages.
 
 ## Cumplimiento de requisitos
 
@@ -375,8 +468,12 @@ Todas las rutas son **relativas**, así que funciona en la subcarpeta `/veta-air
 | Victoria y derrota | Por operación y de campaña; derrota con causa explicada | `levels/LevelBase.js`, `core/Game.js` |
 | Pantallas de inicio, victoria, derrota y reinicio | Menú con campaña, sesión informativa, pausa, operación completada, victoria final con epílogo, derrota con reintento | `ui/Screens.js`, `index.html` |
 | HUD moderno, controles visibles, responsivo con Bootstrap 5 | HUD completo, minimapa, ayuda, modales, diseño táctil | `index.html`, `css/*`, `ui/*` |
-| Código organizado y POO | 45 módulos ES con clases y herencia | `js/` |
-| Repositorio, commits y GitHub Pages | Historial por funcionalidad + flujo de Actions | `.git/`, `.github/workflows/pages.yml`, `PUBLICAR.md` |
+| Código organizado y POO | 53 módulos ES con clases y herencia | `js/` |
+| Repositorio, commits y publicación | Historial por funcionalidad, GitHub Pages y Vercel | `.git/`, `vercel.json`, `PUBLICAR.md` |
+| Control por voz | Web Speech API + intérprete en español + IA para frases libres | `ai/VoiceControl.js`, `ai/VoiceCommands.js` |
+| Realidad virtual | WebXR (Meta Quest) y estéreo con giroscopio (VR Box) | `xr/*` |
+| IA para la toma de decisiones | Director táctico con OpenAI y respaldo local | `ai/TacticalAI.js`, `api/tactics.js` |
+| API key oculta | Funciones serverless de Vercel con variables de entorno | `api/*`, `server/ai.js` |
 | README completo | Este documento | `README.md` |
 
 ## Pruebas realizadas
@@ -390,6 +487,13 @@ Se probó en **Chromium sin interfaz** (render por software SwiftShader) sirvien
 - lanzaorbes cargado, rifle de riel con mira, dispersor, granada de singularidad (atracción + implosión), bastión (−85 % de frente, ×1,6 por la espalda), centinela que cae y estalla al morir;
 - daño real hasta la **derrota** (causa mostrada), **reintento desde el punto de control**, reinicio, pausa, cambio de **gravedad** (se refleja en `world.gravity`), paso a la siguiente operación;
 - diseño en 1280×720, 844×390 táctil horizontal y 390×844 táctil vertical (aviso de girar el teléfono).
+
+**v2.1 (voz, VR e IA):**
+
+- 29 casos del intérprete de voz y la validación de acciones (incluye entradas maliciosas de la IA, que se descartan o acotan).
+- Las 4 funciones de Vercel con OpenAI simulado: CORS, rechazo de otros orígenes (403), límite de solicitudes (429), JSON inválido, audio no válido y que la clave nunca aparezca en las respuestas.
+- Partida en Chrome (con GPU) dirigida por voz: «avanza», «alto», «dispara», «gira a la izquierda 90», «salta», «recarga», «ve al objetivo» (se acerca al marcador) y una frase libre interpretada por la IA; el director táctico baja el daño enemigo y lanza un botiquín; los temporizadores se congelan en pausa y se cancelan al reiniciar el nivel; modo VR Box con giroscopio simulado (45° de giro del teléfono = 45° de cámara), HUD 3D y salida con «pausa»; sin errores en la consola.
+- **No probado en hardware real:** no hubo un Meta Quest ni un teléfono con visor disponibles. WebXR se verificó solo en su inicialización. El mapeo de botones sigue el perfil estándar `xr-standard` de los controles Touch, pero conviene probarlo en el visor.
 
 > **Notas honestas:** muchas de estas pruebas usaron invulnerabilidad, teletransporte y daño forzado para recorrer cada flujo rápido; el equilibrio de dificultad está pensado para jugarse a mano y puede requerir ajustes. En el navegador automatizado la tasa de cuadros no es representativa (render por software) y el audio no se escuchó, solo se verificó que no produjera errores. No se probó en Safari ni en teléfonos físicos.
 
@@ -417,6 +521,7 @@ Se probó en **Chromium sin interfaz** (render por software SwiftShader) sirvien
 
 - **v1.0 — «Veta Airosa»:** primera entrega (cañón minero, un nivel, drones y torres). Sus commits siguen en el historial.
 - **v2.0 — «Eco de Orión»:** nuevo universo original, campaña de 3 operaciones con jefes, 4 enemigos, 4 armas con recarga, 2 granadas, radio y música adaptativa. Commits por funcionalidad (`git log --oneline`).
+- **v2.1:** control por voz, realidad virtual (Meta Quest con WebXR y VR Box), director táctico e intérprete de órdenes con OpenAI a través de Vercel (API key oculta), gamepad, dificultad más baja y temporizadores en tiempo de juego (corrige proyectiles y efectos que podían aparecer en el nivel siguiente al reiniciar o salir al menú).
 
 ## Capturas
 

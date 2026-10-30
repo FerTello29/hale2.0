@@ -1,0 +1,6 @@
+# Archivos que no se suben a Vercel (no los necesita el juego)
+tools/
+docs/
+.github/
+.env*
+!.env.example

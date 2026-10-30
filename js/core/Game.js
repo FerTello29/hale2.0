@@ -4,6 +4,10 @@
  *
  * Estados: loading → menu → briefing → playing ⇄ paused →
  *          levelComplete → (siguiente nivel) … → victory | defeat
+ *
+ * Modos de vista: pantalla normal, visor VR con WebXR (Meta Quest) o lentes
+ * para celular (VR Box). Entradas: teclado/mouse, táctil, gamepad, controles
+ * de VR y voz.
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -40,6 +44,13 @@ import { HUD } from '../ui/HUD.js';
 import { Minimap } from '../ui/Minimap.js';
 import { Screens } from '../ui/Screens.js';
 import { TouchControls } from '../ui/TouchControls.js';
+import { GamepadInput } from './GamepadInput.js';
+import { AIClient } from '../ai/AIClient.js';
+import { TacticalAI } from '../ai/TacticalAI.js';
+import { VoiceControl } from '../ai/VoiceControl.js';
+import { XRMode } from '../xr/XRMode.js';
+import { CardboardMode } from '../xr/CardboardMode.js';
+import { VRHud } from '../xr/VRHud.js';
 
 const LEVEL_CLASSES = [Level1, Level2, Level3];
 
@@ -56,6 +67,8 @@ export class Game {
     this.state = 'loading';
     this.entities = new Set();
     this.removals = [];
+    /** Temporizadores en tiempo de juego (se congelan en pausa y se borran al cambiar de nivel). */
+    this.timers = [];
     this.enemies = new Set();
     this.damageables = new Set();
     this.drones = new Set();
@@ -77,6 +90,8 @@ export class Game {
   async init() {
     this.bus = new EventBus();
     this.settings = new Settings();
+    // el micrófono siempre arranca apagado (el navegador pide permiso al activarlo)
+    this.settings.set('voice', false);
     this.#createRenderer();
     this.input = new Input(this.canvas);
     this.audio = new AudioManager(this);
@@ -109,6 +124,18 @@ export class Game {
     this.hud = new HUD(this);
     this.minimap = new Minimap(this, document.getElementById('minimap'));
     this.touch = new TouchControls(this);
+    this.gamepad = new GamepadInput(this);
+    this.ai = new AIClient(this);
+    this.tactics = new TacticalAI(this);
+    this.voice = new VoiceControl(this);
+    this.xr = new XRMode(this);
+    this.xr.attach(this.scene);
+    this.cardboard = new CardboardMode(this);
+    this.vrHud = new VRHud(this);
+    this.vrHud.attach(this.scene, this.camera);
+    this.ai.check();
+    this.xr.ready.then(() => this.screens.updateImmersiveButtons());
+    this.screens.updateImmersiveButtons();
 
     this.#bindEvents();
     this.#buildWorld(1, { menu: true });
@@ -183,6 +210,8 @@ export class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(this.settings.get('fov'), window.innerWidth / window.innerHeight, 0.1, 900);
     this.camera.position.set(0, 6, 50);
+    // la cámara está en la escena para que el HUD de VR (hijo de la cámara) se dibuje
+    this.scene.add(this.camera);
 
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -194,16 +223,16 @@ export class Game {
   #bindEvents() {
     window.addEventListener('resize', () => this.#onResize());
     this.input.onLockChange = (locked) => {
-      if (!locked && this.state === 'playing' && !this.touch.enabled) this.pause();
+      if (!locked && this.state === 'playing' && !this.touch.enabled && !this.immersive) this.pause();
     };
     this.input.onLockError = () => {
       if (this.state === 'playing') this.bus.emit('hud:toast', { text: 'Haz clic en la escena para controlar la cámara', type: 'warn', icon: 'mouse' });
     };
     this.canvas.addEventListener('mousedown', () => {
-      if (this.state === 'playing' && !this.input.locked && !this.touch.enabled) this.input.requestLock();
+      if (this.state === 'playing' && !this.input.locked && !this.touch.enabled && !this.immersive) this.input.requestLock();
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && this.state === 'playing') this.pause();
+      if (document.hidden && this.state === 'playing' && !this.xr.presenting) this.pause();
     });
     this.settings.onChange((key, value) => {
       if (key === 'gravity') this.physics.setGravity(value);
@@ -215,6 +244,9 @@ export class Game {
         this.scene.traverse((o) => {
           if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; });
         });
+      } else if (key === 'voice') {
+        if (value && !this.voice.enabled) this.voice.start();
+        else if (!value && this.voice.enabled) this.voice.stop();
       } else if (key === 'fov') {
         this.camera.fov = value;
         this.camera.updateProjectionMatrix();
@@ -233,14 +265,100 @@ export class Game {
     this.bloom.resolution.set(w / 2, h / 2);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.cardboard?.resize(w, h);
   }
 
   get difficultyId() {
     return DIFFICULTIES[this.settings.get('difficulty')] ? this.settings.get('difficulty') : 'veterano';
   }
 
+  // ================================================================ vista inmersiva
+  /** 'xr' (visor WebXR), 'cardboard' (lentes para celular) o null. */
+  get immersive() {
+    if (this.xr?.presenting) return 'xr';
+    if (this.cardboard?.active) return 'cardboard';
+    return null;
+  }
+
+  /** Despliega (o reanuda) la partida dentro del visor. Llamar desde un clic. */
+  async playImmersive(kind, level) {
+    const ok = kind === 'xr' ? await this.xr.enter() : await this.cardboard.enter();
+    if (!ok) return;
+    if (this.state === 'paused') this.resume();
+    else if (this.state !== 'playing') await this.startLevel(level ?? this.levelIndex);
+  }
+
+  exitImmersive() {
+    this.xr?.exit();
+    this.cardboard?.exit();
+  }
+
+  onImmersiveStart(kind) {
+    this.input.exitLock();
+    this.touch.show(false);
+    this.hud.hide();
+    this.vrHud.setVisible(true);
+    this.vrHud.pausedText = kind === 'xr'
+      ? ['Gatillo derecho o Y: continuar', 'B: salir de la realidad virtual']
+      : ['Di «continúa» para seguir'];
+    // con lentes para celular la voz es el control principal
+    if (this.voice.supported && !this.voice.enabled) this.voice.start();
+    const help = kind === 'xr'
+      ? 'Stick izq.: mover · gatillo der.: disparar · X: hablar · Y: pausa'
+      : 'Toca la pantalla para disparar · di «avanza», «alto», «ve al objetivo»';
+    this.bus.emit('hud:toast', { text: help, type: 'info', icon: 'headset-vr' });
+  }
+
+  onImmersiveEnd() {
+    this.vrHud.setVisible(false);
+    this.camera.updateProjectionMatrix();
+    if (this.player) this.player.object3d.visible = true;
+    this.#onResize();
+    if (this.state === 'playing') this.pause();
+    if (this.state === 'paused') {
+      this.hud.show();
+      this.screens.showPause();
+    }
+  }
+
+  /** Gira la vista (voz, gamepad): en VR gira el visor, si no la cámara. */
+  turnView(rad) {
+    if (this.xr.presenting) this.xr.turn(rad);
+    else if (this.cardboard.active) this.cardboard.turn(rad);
+    else this.cameraRig.yaw += rad;
+  }
+
+  /** Rayo de puntería en coordenadas del mundo. */
+  aimRay(origin, dir) {
+    if (this.xr.presenting) return this.xr.aimRay(origin, dir);
+    this.camera.getWorldPosition(origin);
+    this.camera.getWorldDirection(dir);
+  }
+
+  /** Ejecuta fn tras `seconds` de juego (no corre en pausa, se cancela al cambiar de nivel). */
+  after(seconds, fn) {
+    this.timers.push({ t: seconds, fn, level: this.level });
+  }
+
+  #runTimers(dt) {
+    if (!this.timers.length) return;
+    for (const t of this.timers) t.t -= dt;
+    const ready = this.timers.filter((t) => t.t <= 0);
+    if (!ready.length) return;
+    this.timers = this.timers.filter((t) => t.t > 0);
+    for (const t of ready) {
+      if (t.level !== this.level) continue;
+      try {
+        t.fn();
+      } catch (err) {
+        console.error('[Game] error en un temporizador', err);
+      }
+    }
+  }
+
   // ================================================================ mundo
   #disposeWorld() {
+    this.timers = [];
     for (const e of this.entities) e.dispose();
     this.entities.clear();
     this.removals = [];
@@ -260,7 +378,9 @@ export class Game {
     this.physics.create(this.settings.get('gravity'));
     this.fx.reset();
     this.radio.clear();
-    this.difficulty = DIFFICULTIES[this.difficultyId];
+    // copia: el director táctico ajusta estos valores durante la partida
+    this.difficulty = { ...DIFFICULTIES[this.difficultyId] };
+    this.tactics.reset();
     this.levelIndex = index;
     this.director = new EnemyDirector(this);
     this.spawner = new Spawner(this);
@@ -347,24 +467,30 @@ export class Game {
     this.screens.show('loading');
     this.screens.setLoading(0.5, `Desplegando en ${LEVELS[index - 1].place}…`);
     // dejar que se pinte la pantalla de carga antes de construir
+    // (dentro del visor no hay requestAnimationFrame de la ventana)
+    const defer = this.xr.presenting ? (fn) => setTimeout(fn, 30) : (fn) => requestAnimationFrame(() => requestAnimationFrame(fn));
     return new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      defer(() => {
         this.#buildWorld(index, opts);
         this.state = 'playing';
         if (!opts.stage || opts.stage === 'start') this.checkpointData = null;
         this.screens.hideAll();
         this.hud.reset();
-        this.hud.show();
-        this.touch.show(true);
+        if (this.immersive) this.vrHud.setVisible(true);
+        else {
+          this.hud.show();
+          this.touch.show(true);
+        }
         this.input.clear();
-        if (!this.touch.enabled) this.input.requestLock();
+        this.voice.exec.stopAll();
+        if (!this.touch.enabled && !this.immersive) this.input.requestLock();
         this.clock.getDelta();
         this.level.begin();
         const info = LEVELS[index - 1];
         this.hud.banner(`${info.code} · ${info.title}`, `${info.place} · ${this.difficulty.label}`, 'info');
         this.bus.emit('game:start', { level: index, difficulty: this.difficulty });
         resolve();
-      }));
+      });
     });
   }
 
@@ -417,23 +543,30 @@ export class Game {
     this.weapons.cancelCharge();
     this.input.exitLock();
     this.input.clear();
+    this.voice.exec.stopAll();
     this.screens.showPause();
     this.touch.show(false);
     this.audio.suspend();
+    // el menú de pausa no se puede leer en pantalla dividida
+    this.cardboard.exit();
   }
 
   resume() {
     if (this.state !== 'paused') return;
     this.state = 'playing';
     this.screens.hideAll();
-    this.touch.show(true);
+    if (!this.immersive) {
+      this.touch.show(true);
+      this.hud.show();
+    }
     this.input.clear();
     this.audio.resume();
-    if (!this.touch.enabled) this.input.requestLock();
+    if (!this.touch.enabled && !this.immersive) this.input.requestLock();
     this.clock.getDelta();
   }
 
   quitToMenu() {
+    this.exitImmersive();
     this.input.exitLock();
     this.hud.hide();
     this.touch.show(false);
@@ -460,6 +593,7 @@ export class Game {
     this.bus.emit('game:levelComplete', result);
     setTimeout(() => {
       if (this.state !== 'levelComplete') return;
+      this.exitImmersive();
       this.hud.hide();
       if (result.final) {
         Progress.markCompleted();
@@ -489,6 +623,7 @@ export class Game {
     const canCheckpoint = !!(this.checkpointData && this.checkpointData.level === this.levelIndex);
     setTimeout(() => {
       if (this.state !== 'defeat') return;
+      this.exitImmersive();
       this.hud.hide();
       this.screens.showDefeat({ ...result, canCheckpoint });
     }, 2200);
@@ -521,11 +656,24 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.1);
     this.time += dt;
     this.frame++;
-    const state = this.state;
     const input = this.input;
+    // entradas externas antes de leer acciones
+    this.xr.pollInput();
+    this.gamepad.poll(dt);
+    if (this.state === 'playing' || this.state === 'paused') {
+      if (input.pressed('voice')) {
+        if (this.voice.mode === 'record') this.voice.pushStart();
+        else this.voice.toggle();
+      }
+      if (input.released('voice') && this.voice.mode === 'record') this.voice.pushEnd();
+    }
+    const state = this.state;
 
     if (state === 'playing') {
-      this.cameraRig.handleInput(input, this.settings);
+      if (this.xr.presenting) input.consumeLook();
+      else this.cameraRig.handleInput(input, this.settings);
+      if (this.cardboard.active) this.cardboard.applyOrientation();
+      this.voice.update(dt);
       if (input.pressed('pause')) this.pause();
       if (input.pressed('help')) this.hud.toggleHelp();
       if (input.pressed('interact')) this.tryInteract();
@@ -536,10 +684,12 @@ export class Game {
     if (simulate && this.level) {
       alpha = this.physics.step(dt, (h) => this.#fixed(h), (a, b, s, c1, c2) => this.#onCollision(a, b, s, c1, c2));
       this.#processRemovals();
+      this.#runTimers(dt);
       if (state === 'playing') {
         this.weapons.update(dt);
         this.director.update(dt);
         this.radio.update(dt);
+        this.tactics.update(dt);
       }
       for (const e of this.entities) {
         if (!e.alive) continue;
@@ -557,7 +707,10 @@ export class Game {
     // cámara
     const player = this.player;
     if (player) {
-      if (state === 'menu' || state === 'briefing') {
+      if (this.xr.presenting) {
+        this.xr.update(dt);
+        player.weaponView.root.visible = player.object3d.visible && player.weaponView.root.visible;
+      } else if (state === 'menu' || state === 'briefing') {
         this.cameraRig.updateMenu(dt, player.object3d.position);
         if (Math.random() < dt * 0.1) player.wave();
       } else if (state !== 'paused' && state !== 'loading') {
@@ -578,7 +731,12 @@ export class Game {
     }
     this.#autoMusic(dt);
 
-    if (this.settings.get('bloom')) this.composer.render(dt);
+    this.vrHud.update(dt);
+
+    // el bloom (EffectComposer) no funciona dentro del visor ni en estéreo
+    if (this.xr.presenting) this.renderer.render(this.scene, this.camera);
+    else if (this.cardboard.active) this.cardboard.render(this.scene, this.camera);
+    else if (this.settings.get('bloom')) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
     input.endFrame();
   }

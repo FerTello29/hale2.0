@@ -186,7 +186,7 @@ export class Espectro extends Enemy {
   #melee() {
     this.meleeCd = 1.4;
     this.anim.once('Punch', { timeScale: 1.4 });
-    setTimeout(() => {
+    this.game.after(0.28, () => {
       const player = this.player;
       if (this.dead || !player || player.dead) return;
       if (player.currPos.distanceTo(this.currPos) < 2.4) {
@@ -195,7 +195,7 @@ export class Espectro extends Enemy {
         player.knockback(away.multiplyScalar(5), 3);
         this.game.audio.play('punch', player.currPos);
       }
-    }, 280);
+    });
   }
 
   onDeath() {

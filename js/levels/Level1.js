@@ -405,7 +405,7 @@ export class Level1 extends LevelBase {
     game.audio.play('dropship');
     this.addScore(300, 'Extracción');
     this.objective('extract', { done: true });
-    setTimeout(() => this.complete(), 1200);
+    this.game.after(1.2, () => this.complete());
   }
 
   tick(dt) {

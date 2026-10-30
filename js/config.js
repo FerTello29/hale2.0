@@ -4,7 +4,7 @@
  */
 
 export const GAME_TITLE = 'ECO DE ORIÓN';
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0';
 
 /** Rutas de recursos (relativas a index.html, compatibles con GitHub Pages). */
 export const PATHS = {
@@ -65,9 +65,9 @@ export const PLAYER = {
   acceleration: 14,
   jumpSpeed: 6.6,
   maxHealth: 100,
-  maxShield: 75,
-  shieldDelay: 3.5,
-  shieldRegen: 30,
+  maxShield: 90,
+  shieldDelay: 2.8,
+  shieldRegen: 38,
   maxStamina: 100,
   staminaDrain: 14,
   staminaRegen: 18,
@@ -111,11 +111,15 @@ export const ABILITIES = {
   pulse: { damage: 30, radius: 7.5, cooldown: 9, deltaV: 13 },
 };
 
-/** Presets de dificultad. */
+/**
+ * Presets de dificultad (v2.1: más accesibles que en v2.0). El director
+ * táctico con IA puede suavizar aún más el daño y la puntería enemiga si el
+ * jugador está en apuros, nunca endurecerlos por encima de estos valores.
+ */
 export const DIFFICULTIES = {
-  recluta: { id: 'recluta', label: 'Recluta', enemyHp: 0.8, enemyDmg: 0.55, count: 0.8, bossHp: 0.8, accuracy: 0.7, pickups: 1.3 },
-  veterano: { id: 'veterano', label: 'Veterano', enemyHp: 1.0, enemyDmg: 1.0, count: 1.0, bossHp: 1.0, accuracy: 1.0, pickups: 1.0 },
-  leyenda: { id: 'leyenda', label: 'Leyenda', enemyHp: 1.3, enemyDmg: 1.5, count: 1.25, bossHp: 1.25, accuracy: 1.25, pickups: 0.8 },
+  recluta: { id: 'recluta', label: 'Recluta', enemyHp: 0.65, enemyDmg: 0.35, count: 0.65, bossHp: 0.6, accuracy: 0.55, pickups: 1.6 },
+  veterano: { id: 'veterano', label: 'Veterano', enemyHp: 0.85, enemyDmg: 0.65, count: 0.85, bossHp: 0.8, accuracy: 0.8, pickups: 1.25 },
+  leyenda: { id: 'leyenda', label: 'Leyenda', enemyHp: 1.1, enemyDmg: 1.1, count: 1.05, bossHp: 1.05, accuracy: 1.05, pickups: 0.95 },
 };
 
 export const SCORE = {
@@ -136,4 +140,17 @@ export const PHYSICS = {
   fixedStep: 1 / 60,
   maxSubSteps: 4,
   defaultGravity: 9.81,
+};
+
+/**
+ * Inteligencia artificial (OpenAI a través de las funciones de Vercel en /api).
+ * La API key NUNCA está en el navegador: vive en las variables de entorno de
+ * Vercel. Si el juego se abre desde otro dominio (p. ej. GitHub Pages), pon en
+ * baseUrl la URL de tu despliegue de Vercel, p. ej. 'https://hale2-0.vercel.app'.
+ * Sin servidor de IA, todo funciona igual con la lógica local.
+ */
+export const AI = {
+  baseUrl: '',
+  timeoutMs: 7000,
+  tacticsInterval: 20,
 };

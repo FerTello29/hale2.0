@@ -408,10 +408,10 @@ export class Coloso extends Enemy {
       const target = player.feetPosition.clone().add(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
       target.y = heightAt(target.x, target.z);
       const vel = new THREE.Vector3((target.x - origin.x) / T, (target.y - origin.y) / T + 0.5 * g * T, (target.z - origin.z) / T);
-      setTimeout(() => {
+      this.game.after(i * 0.11, () => {
         if (this.dead) return;
         game.addEntity(new Lob(game, origin.clone(), vel, 'plasma', { warnAt: target, damageMult: 1.2 }));
-      }, i * 110);
+      });
     }
   }
 

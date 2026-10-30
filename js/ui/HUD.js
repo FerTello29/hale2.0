@@ -22,6 +22,8 @@ export const CONTROLS = [
   { keys: ['F'], label: 'Golpe' },
   { keys: ['Q'], label: 'Pulso de choque' },
   { keys: ['E'], label: 'Interactuar' },
+  { keys: ['V'], label: 'Comandos de voz (activar / hablar)' },
+  { keys: ['Mando'], label: 'Gamepad Xbox / PlayStation / Bluetooth' },
   { keys: ['H'], label: 'Ayuda' },
   { keys: ['Esc', 'P'], label: 'Pausa' },
 ];

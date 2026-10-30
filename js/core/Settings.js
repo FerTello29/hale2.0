@@ -22,6 +22,10 @@ export const DEFAULT_SETTINGS = {
   damageNumbers: true,
   volume: 0.75,
   music: 0.55,
+  voice: false,
+  aiDirector: true,
+  aiVoice: true,
+  vrView: 'third',
 };
 
 export const SETTING_LIMITS = {

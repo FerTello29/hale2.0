@@ -325,7 +325,7 @@ export class Level3 extends LevelBase {
     this.addScore(left * 40, 'Tiempo sobrante en la huida');
     this.hud.timer = null;
     game.audio.play('dropship');
-    setTimeout(() => this.complete({ final: true }), 1200);
+    this.game.after(1.2, () => this.complete({ final: true }));
   }
 
   tick(dt) {

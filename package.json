@@ -1,11 +1,12 @@
 {
   "name": "eco-de-orion",
-  "version": "2.0.0",
-  "description": "ECO DE ORIÓN — campaña de acción en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5.",
+  "version": "2.1.0",
+  "description": "ECO DE ORIÓN — campaña de acción en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5. Control por voz, realidad virtual (Meta Quest / VR Box) e IA con OpenAI vía Vercel.",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "npx --yes http-server . -p 8080 -c-1",
+    "ia-local": "npx --yes vercel dev",
     "props": "npm install --no-save three@0.170.0 && node tools/build-props.mjs",
     "textures": "python tools/generate_textures.py"
   },
@@ -15,8 +16,16 @@
     "videojuego",
     "tercera-persona",
     "github-pages",
-    "webgl"
+    "webgl",
+    "webxr",
+    "meta-quest",
+    "voz",
+    "openai",
+    "vercel"
   ],
   "author": "Fernando Rosales Tello",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
 }

@@ -6,15 +6,16 @@
 import { DIFFICULTIES } from '../config.js';
 import { SETTING_LIMITS, Progress } from '../core/Settings.js';
 import { LEVELS, PROLOGUE, EPILOGUE } from '../gameplay/Story.js';
+import { VOICE_HELP } from '../ai/VoiceCommands.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString('es-MX');
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 const DIFF_DESC = {
-  recluta: 'Enemigos con menos vida y daño, más botiquines. Ideal para disfrutar la historia.',
-  veterano: 'La experiencia equilibrada: enemigos agresivos y recursos justos.',
-  leyenda: 'Enemigos más resistentes y certeros, más oleadas y menos suministros.',
+  recluta: 'Enemigos frágiles y poco certeros, muchos botiquines. Ideal para disfrutar la historia o jugar con voz y VR.',
+  veterano: 'Desafío moderado: enemigos agresivos pero con recursos de sobra.',
+  leyenda: 'Para expertos: enemigos más resistentes y certeros, y menos suministros.',
 };
 
 export class Screens {
@@ -32,6 +33,9 @@ export class Screens {
     };
     this.current = 'loading';
     $('prologue').innerHTML = PROLOGUE.map((p) => `<p>${p}</p>`).join('');
+    document.querySelectorAll('[data-voice-commands]').forEach((el) => {
+      el.innerHTML = VOICE_HELP.map(([say, does]) => `<div class="ctrl"><span>${does}</span><span class="ctrl__keys ctrl__say">${say}</span></div>`).join('');
+    });
     this.#bindButtons();
     this.#bindSettings();
     this.#bindDifficulty();
@@ -78,8 +82,49 @@ export class Screens {
     click($('btn-pause-touch'), () => g.pause());
     click($('btn-next'), () => g.nextLevel());
     click($('btn-checkpoint'), () => g.retryCheckpoint());
+    // realidad virtual: deben iniciarse dentro del clic (gesto del usuario)
+    $('btn-deploy-vr')?.addEventListener('click', () => g.playImmersive('xr', g.levelIndex));
+    $('btn-deploy-cardboard')?.addEventListener('click', () => g.playImmersive('cardboard', g.levelIndex));
+    $('btn-resume-vr')?.addEventListener('click', () => g.playImmersive('xr'));
+    $('btn-resume-cardboard')?.addEventListener('click', () => g.playImmersive('cardboard'));
+    g.bus.on('ai:status', () => this.#renderAIStatus());
     document.querySelectorAll('[data-action="restart"]').forEach((b) => click(b, () => g.restartLevel()));
     document.querySelectorAll('[data-action="menu"]').forEach((b) => click(b, () => g.quitToMenu()));
+  }
+
+  /** Muestra los botones de VR según lo que soporte el dispositivo. */
+  updateImmersiveButtons() {
+    const g = this.game;
+    const xr = !!g.xr?.supported;
+    // lentes para celular: solo en pantallas táctiles con giroscopio (o con ?vrbox para probar)
+    const cardboard = !!g.cardboard?.supported && (g.touch?.enabled || new URLSearchParams(location.search).has('vrbox'));
+    for (const id of ['btn-deploy-vr', 'btn-resume-vr']) $(id)?.classList.toggle('d-none', !xr);
+    for (const id of ['btn-deploy-cardboard', 'btn-resume-cardboard']) $(id)?.classList.toggle('d-none', !cardboard);
+    const info = $('vr-status');
+    if (info) {
+      info.textContent = xr
+        ? 'Visor de realidad virtual detectado.'
+        : cardboard
+          ? 'Puedes jugar con lentes VR Box: pon el teléfono en horizontal dentro del visor.'
+          : 'Abre el juego en el navegador de Meta Quest para jugar en VR, o en tu celular para usar lentes VR Box.';
+    }
+    const voice = $('voice-status');
+    if (voice) voice.textContent = `Voz: ${g.voice?.label ?? '—'}.`;
+    this.#renderAIStatus();
+  }
+
+  #renderAIStatus() {
+    const el = $('ai-status');
+    if (!el) return;
+    const st = this.game.ai?.status ?? 'unknown';
+    const text = {
+      unknown: 'Comprobando el servidor de IA…',
+      online: 'IA conectada (OpenAI vía Vercel): interpreta frases libres y dirige la táctica.',
+      nokey: 'Servidor de IA sin API key: revisa OPENAI_API_KEY en Vercel. Se usa la lógica local.',
+      offline: 'Sin servidor de IA: el juego usa la lógica local (comandos de voz básicos y director táctico local).',
+    }[st];
+    el.textContent = text;
+    el.dataset.status = st;
   }
 
   #bindDifficulty() {
