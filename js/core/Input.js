@@ -29,6 +29,7 @@ const KEYMAP = {
   pause: ['Escape', 'KeyP'],
   help: ['KeyH'],
   voice: ['KeyV'],
+  gestures: ['KeyC'],
 };
 
 export class Input {

@@ -25,7 +25,7 @@ Videojuego 3D de acción en tercera persona para la Web. Controlas a **NOVA-7**,
 3. [Jefes y enemigos](#jefes-y-enemigos)
 4. [Arsenal y habilidades](#arsenal-y-habilidades)
 5. [Controles](#controles)
-6. [Control por voz](#control-por-voz)
+6. [Control por voz](#control-por-voz) · [Gestos con la mano](#gestos-con-la-mano)
 7. [Realidad virtual](#realidad-virtual)
 8. [Inteligencia artificial (OpenAI + Vercel)](#inteligencia-artificial-openai--vercel)
 9. [Mecánicas de juego](#mecánicas-de-juego)
@@ -166,6 +166,24 @@ Varias órdenes se encadenan: «dispara y salta», «gira a la derecha y avanza 
 
 Código: `js/ai/VoiceControl.js` (micrófono y modos) y `js/ai/VoiceCommands.js` (intérprete y ejecutor).
 
+## Gestos con la mano
+
+Pulsa <kbd>C</kbd> (o el botón ✋ del HUD, *Activar / apagar la cámara* en el menú, o *Gestos con la mano* en Ajustes). Se enciende la cámara frontal y aparece un panel con **tu imagen en espejo**, el **esqueleto de la mano** detectada y una **guía ilustrada** que resalta el gesto reconocido. El reconocimiento usa **MediaPipe Gesture Recognizer** (Google) en el navegador: el video **se analiza en tu dispositivo y no se envía a ningún servidor**.
+
+| Gesto | Acción |
+|---|---|
+| ✋ Palma abierta | Avanzar. Mueve la mano hacia un lado de la imagen para **girar** |
+| ✊ Puño | Detenerse (también detiene lo que ordenaste por voz) |
+| ☝️ Índice arriba | Disparar mientras lo mantengas (carga y suelta el orbe) |
+| ✌️ Amor y paz | Saltar |
+| 👍 Pulgar arriba | Recargar |
+| 👎 Pulgar abajo | Retroceder |
+| 🤟 Te quiero | Interactuar (baliza, nave), como <kbd>E</kbd> |
+
+Puedes usar **las dos manos** a la vez (✋ con una para avanzar y ☝️ con la otra para disparar) y combinar los gestos con el teclado o la voz. Para que funcione bien, coloca la mano a unos 30–60 cm de la cámara y con buena luz. Dentro de los visores VR se desactiva, porque la cámara no ve las manos. La primera vez se descargan unos 18 MB (modelo y WebAssembly), que el navegador guarda en caché.
+
+Código: `js/ai/GestureControl.js`.
+
 ## Realidad virtual
 
 ### Meta Quest 3 (WebXR)
@@ -269,6 +287,7 @@ Bajas (acechador 60, centinela 80, espectro 100, bastión 250, tiro a la cabeza 
 | `StereoEffect` + DeviceOrientation | Three.js r170 / nativa | Lentes VR Box para celular. |
 | Web Speech API · MediaRecorder | nativa | Comandos de voz y «presiona para hablar». |
 | Gamepad API | nativa | Controles Xbox, PlayStation y Bluetooth. |
+| MediaPipe Tasks Vision (Gesture Recognizer) | 0.10.14 | Gestos de la mano con la cámara, en el dispositivo. |
 | OpenAI API (`gpt-4o-mini`, `whisper-1`) | — | Director táctico, interpretación de órdenes y transcripción. |
 | Vercel Functions | Node.js 18+ | Backend que oculta la API key (`api/`). |
 | Python + NumPy/SciPy/Pillow | — | Generación de texturas (`tools/generate_textures.py`). |
@@ -300,7 +319,7 @@ hale2.0/                           (nombre del repositorio)
 │   ├── main.js                    # Punto de entrada
 │   ├── config.js                  # Grupos de colisión, armas, granadas, dificultades, puntaje
 │   ├── core/        Game.js (estados, campaña, bucle) · AssetLibrary.js · Input.js · GamepadInput.js · Settings.js · EventBus.js
-│   ├── ai/          AIClient.js · TacticalAI.js · VoiceControl.js · VoiceCommands.js
+│   ├── ai/          AIClient.js · TacticalAI.js · VoiceControl.js · VoiceCommands.js · GestureControl.js
 │   ├── xr/          XRMode.js (Meta Quest) · CardboardMode.js (VR Box) · VRHud.js
 │   ├── physics/     PhysicsWorld.js (paso fijo, interpolación, eventos, raycasts, impulsos)
 │   ├── world/       TerrainField.js · Terrain.js · Environment.js · Vegetation.js · PropFactory.js
@@ -468,9 +487,10 @@ Todas las rutas son **relativas**, así que el juego funciona en la raíz de Ver
 | Victoria y derrota | Por operación y de campaña; derrota con causa explicada | `levels/LevelBase.js`, `core/Game.js` |
 | Pantallas de inicio, victoria, derrota y reinicio | Menú con campaña, sesión informativa, pausa, operación completada, victoria final con epílogo, derrota con reintento | `ui/Screens.js`, `index.html` |
 | HUD moderno, controles visibles, responsivo con Bootstrap 5 | HUD completo, minimapa, ayuda, modales, diseño táctil | `index.html`, `css/*`, `ui/*` |
-| Código organizado y POO | 53 módulos ES con clases y herencia | `js/` |
+| Código organizado y POO | 54 módulos ES con clases y herencia | `js/` |
 | Repositorio, commits y publicación | Historial por funcionalidad, GitHub Pages y Vercel | `.git/`, `vercel.json`, `PUBLICAR.md` |
 | Control por voz | Web Speech API + intérprete en español + IA para frases libres | `ai/VoiceControl.js`, `ai/VoiceCommands.js` |
+| Control con gestos de la mano | Cámara + MediaPipe en el dispositivo, vista previa con esqueleto y guía ilustrada | `ai/GestureControl.js` |
 | Realidad virtual | WebXR (Meta Quest) y estéreo con giroscopio (VR Box) | `xr/*` |
 | IA para la toma de decisiones | Director táctico con OpenAI y respaldo local | `ai/TacticalAI.js`, `api/tactics.js` |
 | API key oculta | Funciones serverless de Vercel con variables de entorno | `api/*`, `server/ai.js` |
@@ -493,6 +513,7 @@ Se probó en **Chromium sin interfaz** (render por software SwiftShader) sirvien
 - 29 casos del intérprete de voz y la validación de acciones (incluye entradas maliciosas de la IA, que se descartan o acotan).
 - Las 4 funciones de Vercel con OpenAI simulado: CORS, rechazo de otros orígenes (403), límite de solicitudes (429), JSON inválido, audio no válido y que la clave nunca aparezca en las respuestas.
 - Partida en Chrome (con GPU) dirigida por voz: «avanza», «alto», «dispara», «gira a la izquierda 90», «salta», «recarga», «ve al objetivo» (se acerca al marcador) y una frase libre interpretada por la IA; el director táctico baja el daño enemigo y lanza un botiquín; los temporizadores se congelan en pausa y se cancelan al reiniciar el nivel; modo VR Box con giroscopio simulado (45° de giro del teléfono = 45° de cámara), HUD 3D y salida con «pausa»; sin errores en la consola.
+- **Gestos (v2.2):** Chrome con una cámara falsa que reproduce fotos reales de manos (muestras públicas de MediaPipe). Reconoce ☝️, ✌️ y 👍 y ejecuta disparo, salto y recarga; con ✋ simulada avanza y gira hacia el lado de la mano; ✊ lo detiene; la pausa suelta las acciones; <kbd>C</kbd> apaga la cámara; sin errores en la consola. En una foto de muestra con la mano pequeña y lejana, el detector no encontró la mano: por eso la interfaz pide acercarla a 30–60 cm.
 - **No probado en hardware real:** no hubo un Meta Quest ni un teléfono con visor disponibles. WebXR se verificó solo en su inicialización. El mapeo de botones sigue el perfil estándar `xr-standard` de los controles Touch, pero conviene probarlo en el visor.
 
 > **Notas honestas:** muchas de estas pruebas usaron invulnerabilidad, teletransporte y daño forzado para recorrer cada flujo rápido; el equilibrio de dificultad está pensado para jugarse a mano y puede requerir ajustes. En el navegador automatizado la tasa de cuadros no es representativa (render por software) y el audio no se escuchó, solo se verificó que no produjera errores. No se probó en Safari ni en teléfonos físicos.
@@ -521,6 +542,7 @@ Se probó en **Chromium sin interfaz** (render por software SwiftShader) sirvien
 
 - **v1.0 — «Veta Airosa»:** primera entrega (cañón minero, un nivel, drones y torres). Sus commits siguen en el historial.
 - **v2.0 — «Eco de Orión»:** nuevo universo original, campaña de 3 operaciones con jefes, 4 enemigos, 4 armas con recarga, 2 granadas, radio y música adaptativa. Commits por funcionalidad (`git log --oneline`).
+- **v2.2:** control con gestos de la mano frente a la cámara (MediaPipe), con vista previa en espejo, esqueleto de la mano y guía ilustrada.
 - **v2.1:** control por voz, realidad virtual (Meta Quest con WebXR y VR Box), director táctico e intérprete de órdenes con OpenAI a través de Vercel (API key oculta), gamepad, dificultad más baja y temporizadores en tiempo de juego (corrige proyectiles y efectos que podían aparecer en el nivel siguiente al reiniciar o salir al menú).
 
 ## Capturas

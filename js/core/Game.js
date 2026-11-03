@@ -7,7 +7,7 @@
  *
  * Modos de vista: pantalla normal, visor VR con WebXR (Meta Quest) o lentes
  * para celular (VR Box). Entradas: teclado/mouse, táctil, gamepad, controles
- * de VR y voz.
+ * de VR, voz y gestos de la mano frente a la cámara.
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -48,6 +48,7 @@ import { GamepadInput } from './GamepadInput.js';
 import { AIClient } from '../ai/AIClient.js';
 import { TacticalAI } from '../ai/TacticalAI.js';
 import { VoiceControl } from '../ai/VoiceControl.js';
+import { GestureControl } from '../ai/GestureControl.js';
 import { XRMode } from '../xr/XRMode.js';
 import { CardboardMode } from '../xr/CardboardMode.js';
 import { VRHud } from '../xr/VRHud.js';
@@ -92,6 +93,7 @@ export class Game {
     this.settings = new Settings();
     // el micrófono siempre arranca apagado (el navegador pide permiso al activarlo)
     this.settings.set('voice', false);
+    this.settings.set('gestures', false);
     this.#createRenderer();
     this.input = new Input(this.canvas);
     this.audio = new AudioManager(this);
@@ -128,6 +130,7 @@ export class Game {
     this.ai = new AIClient(this);
     this.tactics = new TacticalAI(this);
     this.voice = new VoiceControl(this);
+    this.gestures = new GestureControl(this);
     this.xr = new XRMode(this);
     this.xr.attach(this.scene);
     this.cardboard = new CardboardMode(this);
@@ -247,6 +250,9 @@ export class Game {
       } else if (key === 'voice') {
         if (value && !this.voice.enabled) this.voice.start();
         else if (!value && this.voice.enabled) this.voice.stop();
+      } else if (key === 'gestures') {
+        if (value && !this.gestures.enabled) this.gestures.start();
+        else if (!value && this.gestures.enabled) this.gestures.stop();
       } else if (key === 'fov') {
         this.camera.fov = value;
         this.camera.updateProjectionMatrix();
@@ -301,6 +307,8 @@ export class Game {
     this.vrHud.pausedText = kind === 'xr'
       ? ['Gatillo derecho o Y: continuar', 'B: salir de la realidad virtual']
       : ['Di «continúa» para seguir'];
+    // la cámara frontal no ve las manos con el teléfono dentro del visor
+    if (this.gestures.enabled) this.gestures.stop();
     // con lentes para celular la voz es el control principal
     if (this.voice.supported && !this.voice.enabled) this.voice.start();
     const help = kind === 'xr'
@@ -666,7 +674,9 @@ export class Game {
         else this.voice.toggle();
       }
       if (input.released('voice') && this.voice.mode === 'record') this.voice.pushEnd();
+      if (input.pressed('gestures')) this.gestures.toggle();
     }
+    this.gestures.update(dt);
     const state = this.state;
 
     if (state === 'playing') {
