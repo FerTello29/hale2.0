@@ -452,3 +452,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------------------ contacto (LinkedIn) */
+.btn-linkedin {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #0a66c2;
+  --bs-btn-border-color: #0a66c2;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #004182;
+  --bs-btn-hover-border-color: #004182;
+  --bs-btn-active-bg: #00305f;
+  --bs-btn-active-border-color: #00305f;
+  --bs-btn-focus-shadow-rgb: 10, 102, 194;
+  font-weight: 600;
+}
+
+.btn-linkedin .bi-linkedin {
+  margin-right: 4px;
+}
+
+.contact-hint {
+  color: var(--muted);
+  text-align: center;
+}
+
+.contact-footer {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.contact-footer:hover {
+  text-decoration: underline;
+}

@@ -1633,12 +1633,24 @@ body.is-touch.has-gestures .toasts {
     display: none;
   }
 
+  .gesture-panel .gesture-guide {
+    gap: 2px 4px;
+  }
+
   .gesture-panel .gesture-tile {
-    padding: 2px 5px;
+    padding: 1px 5px;
   }
 
   .gesture-panel .gesture-tile__emoji {
-    font-size: 1.15rem;
+    font-size: 1rem;
+  }
+
+  .gesture-panel .gesture-tile__text {
+    font-size: 0.72rem;
+  }
+
+  .gesture-panel .gesture-guide-title {
+    margin: 4px 0 2px;
   }
 }
 

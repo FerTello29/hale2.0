@@ -6,6 +6,9 @@
  * servidor. Se muestra la cámara (en espejo) con el esqueleto de la mano
  * detectada y una guía ilustrada de los gestos, resaltando el que se reconoce.
  *
+ * Además de los 7 gestos de MediaPipe, se calculan gestos propios con los
+ * puntos de la mano: 👈 👉 (moverse de lado), 🤙 (correr) y 👌 (granada).
+ *
  * Se pueden usar las dos manos a la vez (p. ej. ✋ para avanzar con una y ☝️
  * para disparar con la otra). Con la palma abierta, mover la mano hacia un
  * lado de la imagen gira la cámara.
@@ -27,9 +30,50 @@ export const GESTURES = [
   { id: 'Thumb_Up', emoji: '👍', name: 'Pulgar arriba', action: 'Recargar', detail: '' },
   { id: 'Thumb_Down', emoji: '👎', name: 'Pulgar abajo', action: 'Retroceder', detail: 'mientras lo mantengas' },
   { id: 'ILoveYou', emoji: '🤟', name: 'Te quiero', action: 'Interactuar', detail: 'baliza, nave (como E)' },
+  // gestos propios, calculados con los puntos de la mano (classifyHand)
+  { id: 'Point_Left', emoji: '👈', name: 'Señalar a la izquierda', action: 'Izquierda', detail: 'índice de lado, mientras lo mantengas' },
+  { id: 'Point_Right', emoji: '👉', name: 'Señalar a la derecha', action: 'Derecha', detail: 'índice de lado, mientras lo mantengas' },
+  { id: 'Call_Me', emoji: '🤙', name: 'Llámame', action: 'Correr', detail: 'pulgar y meñique: corre hacia adelante' },
+  { id: 'OK_Sign', emoji: '👌', name: 'OK', action: 'Granada', detail: 'mantén para apuntar y suelta para lanzar' },
 ];
 const BY_ID = Object.fromEntries(GESTURES.map((g) => [g.id, g]));
-const HOLDS = { Open_Palm: 'forward', Thumb_Down: 'back' };
+const HOLDS = { Open_Palm: ['forward'], Thumb_Down: ['back'], Point_Left: ['left'], Point_Right: ['right'], Call_Me: ['forward', 'run'] };
+/** Gestos de MediaPipe que un gesto propio puede reemplazar (son poses parecidas o sin clasificar). */
+const OVERRIDABLE = new Set(['None', 'Open_Palm', 'Pointing_Up', 'Closed_Fist']);
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/**
+ * Clasifica gestos que MediaPipe no trae de fábrica a partir de los 21
+ * puntos de la mano (0 muñeca · 1-4 pulgar · 5-8 índice · 9-12 medio ·
+ * 13-16 anular · 17-20 meñique). Las coordenadas son de la cámara SIN espejo;
+ * `aspect` = ancho/alto del video, para medir ángulos en píxeles reales.
+ * @returns {string|null} 'Point_Left' | 'Point_Right' | 'Call_Me' | 'OK_Sign' | null
+ */
+export function classifyHand(lm, aspect = 4 / 3) {
+  if (!lm || lm.length < 21) return null;
+  const scale = dist(lm[0], lm[9]) || 1e-6;
+  // un dedo está extendido si su punta queda más lejos de la muñeca que su articulación media
+  const ext = (tip, pip) => dist(lm[0], lm[tip]) > dist(lm[0], lm[pip]) * 1.08;
+  const index = ext(8, 6);
+  const middle = ext(12, 10);
+  const ring = ext(16, 14);
+  const pinky = ext(20, 18);
+  const thumb = dist(lm[4], lm[17]) > dist(lm[3], lm[17]) * 1.05 && dist(lm[4], lm[5]) > scale * 0.45;
+
+  // 👌 pulgar e índice tocándose y los otros tres dedos estirados
+  if (dist(lm[4], lm[8]) < scale * 0.35 && middle && ring && pinky) return 'OK_Sign';
+  // 🤙 pulgar y meñique fuera, los demás doblados
+  if (thumb && pinky && !index && !middle && !ring) return 'Call_Me';
+  // 👈 👉 solo el índice, apuntando de lado
+  if (index && !middle && !ring && !pinky) {
+    const vx = (lm[8].x - lm[5].x) * aspect;
+    const vy = lm[8].y - lm[5].y;
+    // en la cámara sin espejo, señalar a TU derecha mueve la punta hacia x menor
+    if (Math.abs(vx) > Math.abs(vy) * 1.4) return vx < 0 ? 'Point_Right' : 'Point_Left';
+  }
+  return null;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -177,6 +221,7 @@ export class GestureControl {
     const input = this.game.input;
     input.releaseAll(SOURCE);
     if (this.active.has('Pointing_Up')) input.untap('fire');
+    if (this.active.has('OK_Sign')) input.untap('grenade');
     this.active.clear();
     this.counts = {};
     this.palmX = null;
@@ -208,11 +253,15 @@ export class GestureControl {
     this.result = result;
     const seen = new Set();
     let palmX = null;
+    const aspect = (this.video?.videoWidth || 4) / (this.video?.videoHeight || 3);
     (result?.gestures ?? []).forEach((list, i) => {
       const top = list?.[0];
-      if (!top || top.score < MIN_SCORE || !BY_ID[top.categoryName]) return;
-      seen.add(top.categoryName);
-      if (top.categoryName === 'Open_Palm') {
+      let name = top && top.score >= MIN_SCORE ? top.categoryName : 'None';
+      // gestos propios (👈 👉 🤙 👌) a partir de los puntos de la mano
+      if (OVERRIDABLE.has(name)) name = classifyHand(result.landmarks?.[i], aspect) ?? name;
+      if (!BY_ID[name]) return;
+      seen.add(name);
+      if (name === 'Open_Palm') {
         const lm = result.landmarks?.[i];
         // muñeca (0) y base del dedo medio (9); la imagen se muestra en espejo
         if (lm?.[0] && lm?.[9]) palmX = 1 - (lm[0].x + lm[9].x) / 2;
@@ -263,10 +312,15 @@ export class GestureControl {
       case 'ILoveYou':
         game.tryInteract();
         break;
+      case 'OK_Sign':
+        // mantener G: muestra la trayectoria; al soltar el gesto se lanza
+        input.setHold(SOURCE, 'grenade', true);
+        input.tap('grenade');
+        break;
       default:
         break;
     }
-    if (HOLDS[id]) input.setHold(SOURCE, HOLDS[id], true);
+    for (const action of HOLDS[id] ?? []) input.setHold(SOURCE, action, true);
     game.bus.emit('gesture:start', { id, ...BY_ID[id] });
   }
 
@@ -276,7 +330,11 @@ export class GestureControl {
       input.setHold(SOURCE, 'fire', false);
       input.untap('fire'); // suelta el orbe cargado
     }
-    if (HOLDS[id]) input.setHold(SOURCE, HOLDS[id], false);
+    if (id === 'OK_Sign') {
+      input.setHold(SOURCE, 'grenade', false);
+      input.untap('grenade');
+    }
+    for (const action of HOLDS[id] ?? []) input.setHold(SOURCE, action, false);
   }
 
   /** Acciones continuas: girar con la palma y disparar armas semiautomáticas. */
@@ -287,7 +345,8 @@ export class GestureControl {
       return;
     }
     // si el juego se reanudó con un gesto ya puesto, restaurar lo que mantiene
-    for (const id of this.active) if (HOLDS[id]) game.input.setHold(SOURCE, HOLDS[id], true);
+    // (y lo que comparten dos gestos, p. ej. «avanzar» de ✋ y 🤙)
+    for (const id of this.active) for (const action of HOLDS[id] ?? []) game.input.setHold(SOURCE, action, true);
     if (this.palmX !== null) {
       const off = this.palmX - 0.5;
       const dead = 0.12;

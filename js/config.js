@@ -4,7 +4,7 @@
  */
 
 export const GAME_TITLE = 'ECO DE ORIÓN';
-export const VERSION = '2.2.0';
+export const VERSION = '2.3.0';
 
 /** Rutas de recursos (relativas a index.html, compatibles con GitHub Pages). */
 export const PATHS = {
