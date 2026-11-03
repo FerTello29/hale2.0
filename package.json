@@ -1,6 +1,6 @@
 {
   "name": "eco-de-orion",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "ECO DE ORIÓN — campaña de acción en tercera persona para la Web con Three.js, Rapier 3D y Bootstrap 5. Control por voz, realidad virtual (Meta Quest / VR Box) e IA con OpenAI vía Vercel.",
   "private": true,
   "type": "module",

@@ -28,6 +28,7 @@ import { ThirdPersonCamera } from '../camera/ThirdPersonCamera.js';
 import { WeaponSystem } from '../weapons/WeaponSystem.js';
 import { DamageSystem } from '../gameplay/Damage.js';
 import { Spawner } from '../gameplay/Spawner.js';
+import { AutoAim } from '../gameplay/AutoAim.js';
 import { EnemyDirector } from '../gameplay/EnemyDirector.js';
 import { Radio } from '../gameplay/Radio.js';
 import { LEVELS } from '../gameplay/Story.js';
@@ -127,6 +128,7 @@ export class Game {
     this.minimap = new Minimap(this, document.getElementById('minimap'));
     this.touch = new TouchControls(this);
     this.gamepad = new GamepadInput(this);
+    this.autoAim = new AutoAim(this);
     this.ai = new AIClient(this);
     this.tactics = new TacticalAI(this);
     this.voice = new VoiceControl(this);
@@ -389,6 +391,7 @@ export class Game {
     // copia: el director táctico ajusta estos valores durante la partida
     this.difficulty = { ...DIFFICULTIES[this.difficultyId] };
     this.tactics.reset();
+    this.autoAim.reset();
     this.levelIndex = index;
     this.director = new EnemyDirector(this);
     this.spawner = new Spawner(this);
@@ -696,6 +699,7 @@ export class Game {
       this.#processRemovals();
       this.#runTimers(dt);
       if (state === 'playing') {
+        this.autoAim.update(dt);
         this.weapons.update(dt);
         this.director.update(dt);
         this.radio.update(dt);

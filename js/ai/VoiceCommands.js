@@ -15,23 +15,26 @@ import * as THREE from 'three';
 import { WEAPONS } from '../config.js';
 
 const SOURCE = 'voice';
-const NUMBERS = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cuarenta_y_cinco: 45, noventa: 90 };
+const NUMBERS = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cuarenta_y_cinco: 45, sesenta: 60, noventa: 90, ciento_ochenta: 180 };
 const DIRS = ['forward', 'back', 'left', 'right'];
 const WEAPON_IDS = ['rifle', 'shotgun', 'orb', 'rail', 'next'];
 const MAX_MOVE = 30;
 const MAX_FIRE = 8;
+/** Pasos laterales: «izquierda» sin más mueve a NOVA-7 un momento hacia ese lado. */
+const SIDE_STEP = 1.6;
 
 export const VOICE_HELP = [
-  ['«avanza», «atrás», «izquierda», «derecha»', 'Moverse (hasta decir «alto»)'],
-  ['«avanza 3 segundos»', 'Moverse un tiempo'],
+  ['«avanza», «adelante», «pa\'lante», «atrás»', 'Avanzar o retroceder (hasta decir «alto»)'],
+  ['«izquierda», «para la derecha»', 'Paso lateral hacia ese lado'],
+  ['«gira / voltea / dobla a la izquierda»', 'Girar 90° (o los grados que digas)'],
+  ['«avanza 3 segundos», «un poco a la derecha»', 'Moverse un tiempo'],
   ['«corre» / «camina»', 'Correr o caminar'],
-  ['«alto», «detente»', 'Detenerse y dejar de disparar'],
-  ['«dispara», «ráfaga», «fuego sin parar»', 'Disparar'],
+  ['«alto», «detente», «para»', 'Detenerse y dejar de disparar'],
+  ['«dispara», «dispárales», «fuego sin parar»', 'Disparar con apuntado automático'],
   ['«salta», «recarga», «golpea», «pulso»', 'Acciones'],
   ['«granada», «granada de singularidad»', 'Lanzar granada'],
   ['«rifle», «dispersor», «lanzaorbes», «riel»', 'Cambiar de arma'],
-  ['«gira a la izquierda 90», «media vuelta»', 'Girar la cámara'],
-  ['«mira arriba / abajo / al frente»', 'Inclinar la cámara'],
+  ['«media vuelta», «mira arriba / abajo»', 'Mover la cámara'],
   ['«ve al objetivo»', 'Caminar solo hacia el objetivo'],
   ['«usa», «activa», «aborda»', 'Interactuar (tecla E)'],
   ['«pausa», «continúa», «ayuda»', 'Partida'],
@@ -43,29 +46,97 @@ export function normalize(text) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[¿?¡!.;:"«»]/g, ' ')
+    .replace(/[¿?¡!.;:"«»'’`]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Palabras clave que el reconocedor de voz a veces escribe mal («isquierda»,
+ * «disparar» → «disparan»…). Una palabra desconocida a 1-2 letras de
+ * distancia de una de estas se corrige.
+ */
+const KEYWORDS = [
+  'izquierda', 'derecha', 'adelante', 'atras', 'avanza', 'retrocede', 'dispara', 'recarga', 'salta', 'brinca', 'granada',
+  'corre', 'camina', 'detente', 'gira', 'voltea', 'dobla', 'rifle', 'dispersor', 'escopeta', 'lanzaorbes', 'riel',
+  'objetivo', 'baliza', 'pausa', 'continua', 'golpea', 'pulso', 'rafaga', 'singularidad', 'interactua', 'francotirador',
+];
+const KNOWN = new Set([...KEYWORDS, 'alto', 'para', 'fuego', 'arma', 'mira', 'vuelta', 'media', 'segundos', 'segundo', 'grados', 'ayuda', 'usa', 'activa', 'aborda', 'derecho', 'recto', 'continuo', 'frente', 'rapido', 'hacia', 'falta', 'carga']);
+
+function levenshtein(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+function fixWord(w) {
+  if (w.length < 5 || KNOWN.has(w)) return w;
+  let best = w;
+  let bestD = w.length >= 8 ? 2 : 1;
+  for (const k of KEYWORDS) {
+    // conjugaciones y pronombres pegados («disparales», «correle») se tratan aparte
+    if (w.startsWith(k.slice(0, -1))) continue;
+    const d = levenshtein(w, k);
+    if (d <= bestD && d < (bestD === 2 ? 3 : 2)) {
+      bestD = d;
+      best = k;
+      if (d === 0) break;
+    }
+  }
+  return best;
+}
+
+/** Español coloquial de México → forma que entiende el intérprete. */
+export function canonical(text) {
+  let t = normalize(text);
+  t = t
+    .split(' ')
+    .map(fixWord)
+    .join(' ')
+    // «pa'lante», «palante», «pa delante», «patras», «pa tras»
+    .replace(/\b(pa ?lante|pa ?delante|para delante|palante)\b/g, 'adelante')
+    .replace(/\b(pa ?tras|pa ?atras)\b/g, 'atras')
+    // «pa la izquierda», «para la derecha», «para adelante»: «para» = hacia, no «alto»
+    .replace(/\b(pa|para) (la |el |los |las |mi |tu |su )?(izquierda|derecha|adelante|atras|alla|aca|arriba|abajo|frente|objetivo|baliza|nave|lado)\b/g, 'hacia $2$3')
+    // «sigue derecho», «ve recto», «de frente»: hacia adelante
+    .replace(/\b(derecho|recto|de frente|al frente)\b/g, (m, _x, i, s) => (/mira\s*$/.test(s.slice(0, i)) ? m : 'adelante'))
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t;
 }
 
 function numberIn(t) {
   const m = t.match(/(\d+(?:[.,]\d+)?)/);
   if (m) return Number(m[1].replace(',', '.'));
-  for (const [w, n] of Object.entries(NUMBERS)) if (new RegExp(`\\b${w.replace('_', ' ')}\\b`).test(t)) return n;
+  for (const [w, n] of Object.entries(NUMBERS).sort((a, b) => b[0].length - a[0].length)) {
+    if (new RegExp(`\\b${w.replace(/_/g, ' ')}\\b`).test(t)) return n;
+  }
   return null;
 }
 
 function seconds(t) {
-  return /\bsegundo/.test(t) ? numberIn(t) : null;
+  if (/\bsegundo/.test(t)) return numberIn(t);
+  if (/\b(un poco|poquito|tantito|un paso)\b/.test(t)) return 0.8;
+  if (/\b(mucho|bastante)\b/.test(t)) return 4;
+  return null;
 }
 
 /** Una cláusula ("avanza", "dispara 2 segundos") → lista de acciones. */
 function parseClause(t) {
   const out = [];
   if (!t) return out;
-  if (/(alto el fuego|deja de disparar|no dispares|cese el fuego)/.test(t)) return [{ do: 'stopFire' }];
-  // «para» solo al inicio: «avanza para allá» no debe detener a NOVA-7
-  if (/\b(alto|detente|deten|quieto|frena|stop|espera)\b|^para(te)?\b/.test(t)) return [{ do: 'stop' }];
+  if (/(alto el fuego|deja de disparar|no dispares|cese el fuego|ya no dispares)/.test(t)) return [{ do: 'stopFire' }];
+  // «para» solo si va sola o como «parate» / «para ya» («para la izquierda» ya se convirtió en «hacia la izquierda»)
+  if (/\b(alto|detente|deten|detengase|quieto|frena|stop|espera|ya no te muevas)\b|^para(te)?( ya| ahi)?$/.test(t)) return [{ do: 'stop' }];
   if (/(sal(ir|te)? de (la )?(realidad virtual|vr|modo vr)|quitar vr)/.test(t)) return [{ do: 'exitVR' }];
   if (/\b(pausa|pausar|pon pausa)\b/.test(t)) return [{ do: 'pause' }];
   if (/\b(continua|continuar|reanuda|reanudar|seguir jugando)\b/.test(t) && !/(avanz|camin|adelante)/.test(t)) return [{ do: 'resume' }];
@@ -73,18 +144,19 @@ function parseClause(t) {
   if (/(objetivo|mision|baliza|marcador|destino)/.test(t) && /\b(ve|ir|vamos|llevame|guiame|sigue|camina|avanza|hacia|al)\b/.test(t)) return [{ do: 'goto' }];
 
   // giros de cámara
-  if (/(media vuelta|date la vuelta|da la vuelta|voltea atras|mira atras|gira atras)/.test(t)) return [{ do: 'turn', degrees: 180 }];
-  const turn = t.match(/\b(gira|girar|voltea|voltear|rota|rotar|mira|dobla)\b.*\b(izquierda|derecha)\b/);
+  if (/(media vuelta|date la vuelta|da la vuelta|dese la vuelta|voltea atras|voltea hacia atras|mira atras|gira atras|vuelta completa)/.test(t)) return [{ do: 'turn', degrees: 180 }];
+  const turn = t.match(/\b(gira\w*|volte\w*|rota\w*|mira|dobla\w*|da vuelta|vuelta|tuerce)\b.*\b(izquierda|derecha)\b/);
   if (turn) {
-    const deg = Math.min(180, numberIn(t) ?? 45);
+    // «un poco» no es «1 grado»
+    const deg = Math.min(180, /\b(un poco|poquito|tantito)\b/.test(t) ? 30 : numberIn(t) ?? 90);
     return [{ do: 'turn', degrees: turn[2] === 'izquierda' ? deg : -deg }];
   }
   if (/\bmira (hacia )?(arriba)\b/.test(t)) return [{ do: 'look', dir: 'up' }];
   if (/\bmira (hacia )?(abajo|el suelo)\b/.test(t)) return [{ do: 'look', dir: 'down' }];
-  if (/\bmira (al )?(frente|adelante|centro)\b/.test(t)) return [{ do: 'look', dir: 'center' }];
+  if (/\bmira (hacia )?(al )?(adelante|centro|frente)\b/.test(t)) return [{ do: 'look', dir: 'center' }];
 
   // armas
-  if (/(siguiente arma|cambia (de )?arma|otra arma)/.test(t)) out.push({ do: 'weapon', id: 'next' });
+  if (/(siguiente arma|cambia (de )?arma|otra arma|cambia el arma)/.test(t)) out.push({ do: 'weapon', id: 'next' });
   else if (/\b(escopeta|dispersor)\b/.test(t)) out.push({ do: 'weapon', id: 'shotgun' });
   else if (/\b(orbe|orbes|lanzaorbes|lanzador)\b/.test(t)) out.push({ do: 'weapon', id: 'orb' });
   else if (/\b(riel|francotirador|sniper)\b/.test(t)) out.push({ do: 'weapon', id: 'rail' });
@@ -98,33 +170,33 @@ function parseClause(t) {
     }
   }
 
-  if (/\bgranada|explosivo\b/.test(t)) {
+  if (/\b(granada|explosivo|bomba)\b/.test(t)) {
     out.push({ do: 'grenade', type: /(singularidad|gravedad|agujero|vortice)/.test(t) ? 'gravity' : /(fragmentacion|normal)/.test(t) ? 'frag' : undefined });
   }
-  if (/\b(salta|saltar|brinca|brincar|salto)\b/.test(t)) out.push({ do: 'jump' });
+  if (/\b(salt\w*|brinc\w*|brinque\w*)\b/.test(t)) out.push({ do: 'jump' });
   if (/\brecarg/.test(t)) out.push({ do: 'reload' });
-  if (/\b(golpe|golpea|golpear|punetazo|pega|empuja|patea)\b/.test(t)) out.push({ do: 'melee' });
+  if (/\b(golpe\w*|punetazo|pega\w*|empuja|patea\w*|madrazo)\b/.test(t)) out.push({ do: 'melee' });
   if (/\b(pulso|onda de choque|choque)\b/.test(t)) out.push({ do: 'pulse' });
   // «usa el pulso» es el pulso, no interactuar
-  if (!out.length && /\b(usa|usar|interactua|interactuar|activa|activar|aborda|abordar|abre|recoge|toma|sube)\b/.test(t)) out.push({ do: 'interact' });
+  if (!out.length && /\b(usa|usar|interactua\w*|activa\w*|aborda\w*|abre|recoge|toma|sube\w*)\b/.test(t)) out.push({ do: 'interact' });
   if (/(deja de apuntar|baja el arma|no apuntes)/.test(t)) out.push({ do: 'aim', on: false });
   else if (/\bapunta\b/.test(t)) out.push({ do: 'aim', on: true });
 
-  if (/\b(dispara|disparale|disparen|disparar|fuego|ataca|atacar|rafaga|tira|mata)\b/.test(t)) {
-    const s = seconds(t) ?? (/(sin parar|continuo|todo)/.test(t) ? 6 : /rafaga/.test(t) ? 1 : 1.5);
+  if (/\b(dispar\w*|fuego|ataca\w*|rafaga|tira(le|les)?|tirale\w*|mata\w*|balea\w*|plomo|acaba con)\b/.test(t)) {
+    const s = seconds(t) ?? (/(sin parar|continuo|todo|mucho)/.test(t) ? 6 : /rafaga/.test(t) ? 1 : 1.5);
     out.push({ do: 'fire', seconds: s });
   }
 
   // movimiento
   const s = seconds(t);
-  if (/\b(corre|correr|sprint|esprinta)\b/.test(t)) {
+  if (/\b(corr\w*|sprint|esprinta|rapido)\b/.test(t) && !/\bfuego rapido\b/.test(t)) {
     out.push({ do: 'run', on: true });
-    if (!/(atras|retrocede|izquierda|derecha)/.test(t)) out.push({ do: 'move', dir: 'forward', seconds: s ?? undefined });
-  } else if (/\b(despacio|lento|camina normal)\b/.test(t)) out.push({ do: 'run', on: false });
-  if (/\b(atras|retrocede|retroceder|recula)\b/.test(t)) out.push({ do: 'move', dir: 'back', seconds: s ?? undefined });
-  else if (/\b(izquierda)\b/.test(t)) out.push({ do: 'move', dir: 'left', seconds: s ?? undefined });
-  else if (/\b(derecha)\b/.test(t)) out.push({ do: 'move', dir: 'right', seconds: s ?? undefined });
-  else if (/\b(avanza|avanzar|adelante|camina|caminar|muevete|sigue|ve)\b/.test(t) && !out.some((a) => a.do === 'move')) {
+    if (!/(atras|retroce|izquierda|derecha)/.test(t)) out.push({ do: 'move', dir: 'forward', seconds: s ?? undefined });
+  } else if (/\b(despacio|lento|camina normal|ya no corras)\b/.test(t)) out.push({ do: 'run', on: false });
+  if (/\b(atras|retroce\w*|recula|regresa\w*|reversa)\b/.test(t)) out.push({ do: 'move', dir: 'back', seconds: s ?? undefined });
+  else if (/\b(izquierda)\b/.test(t)) out.push({ do: 'move', dir: 'left', seconds: s ?? SIDE_STEP });
+  else if (/\b(derecha)\b/.test(t)) out.push({ do: 'move', dir: 'right', seconds: s ?? SIDE_STEP });
+  else if (/\b(avanz\w*|adelante|camin\w*|muevete|sigue|ve|vamos|vete|hacia)\b/.test(t) && !out.some((a) => a.do === 'move')) {
     out.push({ do: 'move', dir: 'forward', seconds: s ?? undefined });
   }
   return out;
@@ -132,12 +204,35 @@ function parseClause(t) {
 
 /** Frase completa → acciones (vacío si no se entendió). */
 export function parseCommand(text) {
-  const t = normalize(text);
+  const t = canonical(text);
   if (!t) return [];
   const clauses = t.split(/,|\by luego\b|\bluego\b|\bdespues\b|\by\b|\be\b/).map((c) => c.trim()).filter(Boolean);
   const actions = [];
   for (const c of clauses) actions.push(...parseClause(c));
   return actions;
+}
+
+/** Palabras que no aportan a la orden (para medir cuánto se entendió). */
+const FILLER = new Set(['a', 'al', 'la', 'el', 'los', 'las', 'de', 'del', 'y', 'e', 'que', 'ya', 'por', 'favor', 'porfa', 'nova', 'robot', 'oye', 'hacia', 'un', 'una', 'poco', 'mas', 'muy', 'se', 'te', 'me', 'lo', 'le', 'en', 'con', 'ahora', 'ahi', 'aqui', 'eh', 'este', 'pues', 'bueno', 'vale', 'okay', 'ok']);
+
+/**
+ * Qué parte de la frase se entendió (0..1): si es baja y hay IA, se le pide a
+ * la IA que la interprete aunque el intérprete local haya sacado algo.
+ */
+export function coverage(text) {
+  const words = canonical(text).split(' ').filter((w) => w && !FILLER.has(w) && !/^\d+$/.test(w));
+  if (!words.length) return 1;
+  let hit = 0;
+  // raíces de verbos de órdenes: «voltéate», «dóblale», «muévete»… forman parte de frases que sí se entienden
+  const STEMS = /^(gir|volt|dobl|rot|tuerc|dispar|corr|camin|avanz|retroc|regres|salt|brinc|recarg|golpe|mir|tir|mat|atac|activ|abord|interact|sub|usa|muev|vete|sigue|segundo|grado|ves|veces|todo|sin|parar|lado|izquierd|derech)/;
+  for (const w of words) if (parseClause(w).length || KNOWN.has(w) || STEMS.test(w)) hit++;
+  return hit / words.length;
+}
+
+/** Órdenes de una sola palabra seguras de ejecutar con el resultado provisional. */
+export function quickCommand(text) {
+  const t = normalize(text);
+  return /^(alto|detente|quieto|stop|salta|brinca|recarga)$/.test(t) ? parseCommand(t) : [];
 }
 
 /** Valida acciones que vienen de la IA (o de cualquier fuente externa). */
@@ -265,6 +360,7 @@ export class VoiceExecutor {
       case 'fire':
         this.fire = a.seconds ?? 1.5;
         this.semiTimer = 0;
+        game.autoAim?.request(this.fire + 0.3);
         return 'Disparar';
       case 'jump':
         input.tap('jump');
@@ -329,6 +425,7 @@ export class VoiceExecutor {
     }
     // disparo sostenido: automático = mantener; semiautomático = pulsar a su cadencia; orbe = cargar y soltar
     if (this.fire > 0) {
+      game.autoAim?.request();
       const w = game.weapons;
       const mode = w.def.mode;
       this.fire -= dt;

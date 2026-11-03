@@ -12,11 +12,11 @@
  * Cada frase se interpreta primero localmente (VoiceCommands.parseCommand) y,
  * si no se entiende, la interpreta la IA (/api/command).
  */
-import { parseCommand, sanitizeActions, VoiceExecutor } from './VoiceCommands.js';
+import { parseCommand, sanitizeActions, VoiceExecutor, coverage, quickCommand, normalize } from './VoiceCommands.js';
 
 const $ = (id) => document.getElementById(id);
-/** Órdenes que se ejecutan con el resultado provisional, sin esperar a que termine la frase. */
-const QUICK = new Set(['stop', 'stopFire', 'jump', 'reload', 'melee', 'pulse']);
+/** Si el intérprete local entiende menos de esta parte de la frase, se consulta a la IA. */
+const MIN_COVERAGE = 0.6;
 
 export class VoiceControl {
   constructor(game) {
@@ -27,7 +27,7 @@ export class VoiceControl {
     this.enabled = false;
     this.listening = false;
     this.recording = false;
-    this.quickDone = new Set();
+    this.quickDone = new Map(); // resultado → texto ya ejecutado con el provisional
     this.chip = $('voice-chip');
     this.text = $('voice-text');
     this.button = $('btn-voice');
@@ -50,7 +50,7 @@ export class VoiceControl {
     rec.lang = 'es-MX';
     rec.continuous = true;
     rec.interimResults = true;
-    rec.maxAlternatives = 3;
+    rec.maxAlternatives = 5;
     rec.onstart = () => {
       this.listening = true;
       this.#render();
@@ -62,14 +62,16 @@ export class VoiceControl {
         if (!r.isFinal) {
           const t = r[0].transcript;
           this.#show(`… ${t}`, 'interim');
-          const quick = parseCommand(t);
-          if (quick.length && quick.every((a) => QUICK.has(a.do)) && !this.quickDone.has(key)) {
-            this.quickDone.add(key);
+          // solo órdenes de UNA palabra («alto», «salta»): «para…» puede ser «para la izquierda»
+          const quick = quickCommand(t);
+          if (quick.length && !this.quickDone.has(key)) {
+            this.quickDone.set(key, normalize(t));
             this.exec.run(quick);
           }
           continue;
         }
-        if (this.quickDone.has(key)) continue;
+        // si la frase final es la misma que ya se ejecutó, no repetirla
+        if (this.quickDone.has(key) && this.quickDone.get(key) === normalize(r[0].transcript)) continue;
         const alts = Array.from(r, (a) => a.transcript);
         this.handleText(alts[0], alts.slice(1));
       }
@@ -200,23 +202,41 @@ export class VoiceControl {
   /** Interpreta una frase (también sirve para pruebas desde la consola). */
   async handleText(text, alternatives = []) {
     const game = this.game;
+    // 1) intérprete local con cada alternativa del reconocedor: la que mejor se entienda
+    let local = [];
+    let localText = text;
+    let best = -1;
     for (const t of [text, ...alternatives]) {
       const actions = parseCommand(t);
-      if (actions.length) {
-        this.#show(`«${t}»`, 'heard');
-        this.exec.run(actions);
-        return actions;
+      if (!actions.length) continue;
+      const cov = coverage(t);
+      if (cov > best) {
+        best = cov;
+        local = actions;
+        localText = t;
       }
     }
-    if (game.settings.get('aiVoice') && (await game.ai.check()) === 'online') {
+    const aiOn = game.settings.get('aiVoice') && (await game.ai.check()) === 'online';
+    if (local.length && (best >= MIN_COVERAGE || !aiOn)) {
+      this.#show(`«${localText}»`, 'heard');
+      this.exec.run(local);
+      return local;
+    }
+    // 2) la IA interpreta frases libres o mal reconocidas (recibe también las alternativas)
+    if (aiOn) {
       this.#show(`«${text}» · pensando…`, 'interim');
-      const res = await game.ai.command(text, this.#context());
+      const res = await game.ai.command(text, { ...this.#context(), alternatives: alternatives.slice(0, 4), localGuess: local });
       const actions = sanitizeActions(res?.actions);
       if (actions.length) {
         this.exec.run(actions);
         if (res.reply) this.#show(`IA: ${String(res.reply).slice(0, 80)}`, 'ok');
         return actions;
       }
+    }
+    if (local.length) {
+      this.#show(`«${localText}»`, 'heard');
+      this.exec.run(local);
+      return local;
     }
     this.#show(`No entendí «${text}» · di «ayuda»`, 'error');
     return [];

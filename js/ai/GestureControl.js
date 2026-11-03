@@ -8,10 +8,11 @@
  *
  * Además de los 7 gestos de MediaPipe, se calculan gestos propios con los
  * puntos de la mano: 👈 👉 (moverse de lado), 🤙 (correr) y 👌 (granada).
+ * Para girar, la palma o el puño se inclinan como un volante (handTilt).
+ * Al disparar con ☝️ se activa el apuntado automático (AutoAim).
  *
  * Se pueden usar las dos manos a la vez (p. ej. ✋ para avanzar con una y ☝️
- * para disparar con la otra). Con la palma abierta, mover la mano hacia un
- * lado de la imagen gira la cámara.
+ * para disparar con la otra).
  */
 
 const VISION_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
@@ -19,12 +20,16 @@ const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/gesture_recog
 const SOURCE = 'gesture';
 const DETECT_INTERVAL = 1000 / 20; // ms (≈20 detecciones por segundo)
 const MIN_SCORE = 0.55;
-const STABLE = 2; // detecciones seguidas para aceptar o soltar un gesto
+const STABLE_ON = 2; // detecciones seguidas para aceptar un gesto
+const STABLE_OFF = 4; // …y para soltarlo (tolera cortes breves de la detección: NOVA-7 no titubea)
+const TILT_DEAD = THREE_DEG(18); // inclinación natural de la mano que no gira
+const TILT_FULL = THREE_DEG(55); // inclinación con la que se gira a la velocidad máxima
+const TURN_SPEED = 2.2; // rad/s
 
 /** Gestos reconocidos, su ilustración y su acción en el juego. */
 export const GESTURES = [
-  { id: 'Open_Palm', emoji: '✋', name: 'Palma abierta', action: 'Avanzar', detail: 'mueve la mano a un lado para girar' },
-  { id: 'Closed_Fist', emoji: '✊', name: 'Puño', action: 'Detenerse', detail: 'suelta todo lo que esté activo' },
+  { id: 'Open_Palm', emoji: '✋', name: 'Palma abierta', action: 'Avanzar', detail: 'recto; inclínala como volante para girar' },
+  { id: 'Closed_Fist', emoji: '✊', name: 'Puño', action: 'Detenerse', detail: 'inclínalo para girar sin avanzar' },
   { id: 'Pointing_Up', emoji: '☝️', name: 'Índice arriba', action: 'Disparar', detail: 'mientras lo mantengas' },
   { id: 'Victory', emoji: '✌️', name: 'Amor y paz', action: 'Saltar', detail: '' },
   { id: 'Thumb_Up', emoji: '👍', name: 'Pulgar arriba', action: 'Recargar', detail: '' },
@@ -37,11 +42,34 @@ export const GESTURES = [
   { id: 'OK_Sign', emoji: '👌', name: 'OK', action: 'Granada', detail: 'mantén para apuntar y suelta para lanzar' },
 ];
 const BY_ID = Object.fromEntries(GESTURES.map((g) => [g.id, g]));
-const HOLDS = { Open_Palm: ['forward'], Thumb_Down: ['back'], Point_Left: ['left'], Point_Right: ['right'], Call_Me: ['forward', 'run'] };
-/** Gestos de MediaPipe que un gesto propio puede reemplazar (son poses parecidas o sin clasificar). */
-const OVERRIDABLE = new Set(['None', 'Open_Palm', 'Pointing_Up', 'Closed_Fist']);
+const HOLDS = { Open_Palm: ['forward'], Thumb_Down: ['back'], Pointing_Up: ['fire'], Point_Left: ['left'], Point_Right: ['right'], Call_Me: ['forward', 'run'] };
+/**
+ * Qué gestos propios pueden reemplazar a lo que dijo MediaPipe (poses parecidas
+ * o sin clasificar). Así un ☝️ claro nunca se convierte en otra cosa.
+ */
+const OVERRIDES = {
+  None: null, // cualquiera
+  Pointing_Up: new Set(['Point_Left', 'Point_Right']),
+  Open_Palm: new Set(['OK_Sign']),
+  Closed_Fist: new Set(['Call_Me', 'Point_Left', 'Point_Right']),
+};
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function THREE_DEG(d) {
+  return (d * Math.PI) / 180;
+}
+
+/**
+ * Inclinación de la mano como un volante (radianes): 0 = dedos hacia arriba,
+ * positivo = inclinada hacia TU derecha (la imagen se muestra en espejo).
+ */
+export function handTilt(lm, aspect = 4 / 3) {
+  if (!lm?.[0] || !lm?.[9]) return 0;
+  const vx = (lm[9].x - lm[0].x) * aspect;
+  const vy = lm[9].y - lm[0].y;
+  // en la cámara sin espejo, inclinarla a tu derecha mueve los dedos hacia x menor
+  return Math.atan2(-vx, -vy);
+}
 
 /**
  * Clasifica gestos que MediaPipe no trae de fábrica a partir de los 21
@@ -97,7 +125,9 @@ export class GestureControl {
     this.lastVideoTime = -1;
     this.counts = {}; // gesto → detecciones seguidas (positivas o negativas)
     this.active = new Set();
-    this.palmX = null;
+    this.tilt = 0; // inclinación suavizada de la mano que conduce (✋ o ✊)
+    this.steering = false;
+    this.handNames = [];
     this.semiTimer = 0;
     this.result = null;
     this.panel = $('gesture-panel');
@@ -224,7 +254,8 @@ export class GestureControl {
     if (this.active.has('OK_Sign')) input.untap('grenade');
     this.active.clear();
     this.counts = {};
-    this.palmX = null;
+    this.tilt = 0;
+    this.steering = false;
     this.#highlight();
   }
 
@@ -252,20 +283,22 @@ export class GestureControl {
   process(result) {
     this.result = result;
     const seen = new Set();
-    let palmX = null;
+    let tilt = null;
+    this.handNames = [];
     const aspect = (this.video?.videoWidth || 4) / (this.video?.videoHeight || 3);
     (result?.gestures ?? []).forEach((list, i) => {
       const top = list?.[0];
       let name = top && top.score >= MIN_SCORE ? top.categoryName : 'None';
       // gestos propios (👈 👉 🤙 👌) a partir de los puntos de la mano
-      if (OVERRIDABLE.has(name)) name = classifyHand(result.landmarks?.[i], aspect) ?? name;
+      if (name in OVERRIDES) {
+        const own = classifyHand(result.landmarks?.[i], aspect);
+        if (own && (OVERRIDES[name] === null || OVERRIDES[name].has(own))) name = own;
+      }
+      this.handNames[i] = name;
       if (!BY_ID[name]) return;
       seen.add(name);
-      if (name === 'Open_Palm') {
-        const lm = result.landmarks?.[i];
-        // muñeca (0) y base del dedo medio (9); la imagen se muestra en espejo
-        if (lm?.[0] && lm?.[9]) palmX = 1 - (lm[0].x + lm[9].x) / 2;
-      }
+      // la palma o el puño conducen: su inclinación es el volante
+      if ((name === 'Open_Palm' || name === 'Closed_Fist') && tilt === null) tilt = handTilt(result.landmarks?.[i], aspect);
     });
     for (const g of GESTURES) {
       const c = this.counts[g.id] ?? 0;
@@ -273,10 +306,26 @@ export class GestureControl {
     }
     const before = new Set(this.active);
     for (const g of GESTURES) {
-      if (this.counts[g.id] >= STABLE) this.active.add(g.id);
-      else if (this.counts[g.id] <= -STABLE) this.active.delete(g.id);
+      if (this.counts[g.id] >= STABLE_ON) this.active.add(g.id);
+      else if (this.counts[g.id] <= -STABLE_OFF) this.active.delete(g.id);
     }
-    this.palmX = this.active.has('Open_Palm') ? palmX ?? this.palmX : null;
+    // con una sola mano no puede haber dos gestos: si ya se ve uno nuevo estable,
+    // el anterior termina en ese momento (sin esperar la tolerancia de STABLE_OFF)
+    const hands = result?.gestures?.length ?? 0;
+    if (hands === 1 && seen.size === 1) {
+      const [now] = seen;
+      if (this.active.has(now)) {
+        for (const id of [...this.active]) {
+          if (id === now) continue;
+          this.active.delete(id);
+          this.counts[id] = -STABLE_OFF;
+        }
+      }
+    }
+    // filtro suave para que el volante no tiemble
+    this.steering = this.active.has('Open_Palm') || this.active.has('Closed_Fist');
+    if (!this.steering) this.tilt = 0;
+    else this.tilt += ((tilt ?? 0) - this.tilt) * 0.5;
     for (const id of this.active) if (!before.has(id)) this.#onStart(id);
     for (const id of before) if (!this.active.has(id)) this.#onEnd(id);
     this.#draw(result);
@@ -337,7 +386,16 @@ export class GestureControl {
     for (const action of HOLDS[id] ?? []) input.setHold(SOURCE, action, false);
   }
 
-  /** Acciones continuas: girar con la palma y disparar armas semiautomáticas. */
+  /** Giro (rad/s, positivo = a la derecha) según la inclinación de la mano. */
+  steerRate() {
+    if (!this.steering) return 0;
+    const a = Math.abs(this.tilt);
+    if (a < TILT_DEAD) return 0;
+    const k = Math.min(1, (a - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
+    return Math.sign(this.tilt) * k * k * TURN_SPEED;
+  }
+
+  /** Acciones continuas: volante, disparo de armas semiautomáticas y apuntado automático. */
   #apply(dt) {
     const { game } = this;
     if (!this.#canAct()) {
@@ -347,12 +405,11 @@ export class GestureControl {
     // si el juego se reanudó con un gesto ya puesto, restaurar lo que mantiene
     // (y lo que comparten dos gestos, p. ej. «avanzar» de ✋ y 🤙)
     for (const id of this.active) for (const action of HOLDS[id] ?? []) game.input.setHold(SOURCE, action, true);
-    if (this.palmX !== null) {
-      const off = this.palmX - 0.5;
-      const dead = 0.12;
-      if (Math.abs(off) > dead) game.turnView(-(off - Math.sign(off) * dead) * dt * 4);
-    }
+    const rate = this.steerRate();
+    // girar a la derecha = yaw menor (sin apuntado automático, que ya gira hacia el blanco)
+    if (rate && !game.autoAim?.target) game.turnView(-rate * dt);
     if (this.active.has('Pointing_Up')) {
+      game.autoAim?.request();
       const w = game.weapons;
       if (w.def.mode === 'semi') {
         this.semiTimer -= dt;
@@ -389,8 +446,7 @@ export class GestureControl {
     ctx.clearRect(0, 0, w, h);
     const conns = this.HAND_CONNECTIONS ?? [];
     (result?.landmarks ?? []).forEach((lm, i) => {
-      const name = result.gestures?.[i]?.[0]?.categoryName;
-      const on = this.active.has(name);
+      const on = this.active.has(this.handNames[i]);
       ctx.lineWidth = Math.max(2, w / 160);
       ctx.strokeStyle = on ? '#3dffb0' : '#5ff0ff';
       ctx.beginPath();
@@ -406,10 +462,23 @@ export class GestureControl {
         ctx.fill();
       }
     });
-    // zona muerta del giro con la palma
-    if (this.palmX !== null) {
-      ctx.fillStyle = 'rgba(95,240,255,0.12)';
-      ctx.fillRect(w * 0.38, 0, w * 0.24, h);
+    // volante: arco con la inclinación actual (verde si está girando)
+    if (this.steering) {
+      const cx = w / 2;
+      const cy = h * 0.9;
+      const r = h * 0.22;
+      ctx.lineWidth = Math.max(3, w / 110);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+      // el lienzo se ve en espejo: se dibuja con el ángulo invertido
+      const ang = -Math.PI / 2 - this.tilt;
+      ctx.strokeStyle = this.steerRate() ? '#3dffb0' : '#5ff0ff';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+      ctx.stroke();
     }
   }
 }

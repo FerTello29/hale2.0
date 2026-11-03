@@ -9,7 +9,9 @@
 import { json, preflight, rejectForeign, rateLimit, readJSON, chatJSON, hasKey } from '../server/ai.js';
 
 const SYSTEM = `Eres el sistema de control por voz de NOVA-7, un robot de combate en un videojuego de acción en tercera persona.
-Convierte la orden del jugador (en español, puede tener errores de transcripción) en acciones del juego.
+Convierte la orden del jugador (español de México, puede tener errores de transcripción) en acciones del juego.
+Recibes la transcripción principal, otras alternativas del reconocedor de voz y lo que entendió el intérprete local:
+elige la interpretación más probable (la transcripción puede tener palabras mal escritas, p. ej. "isquierda", "dispárales", "brínquele").
 Responde SOLO con JSON: {"actions":[...], "reply":"confirmación breve en español (máx. 8 palabras)"}.
 Acciones permitidas (máximo 4, en orden):
 - {"do":"move","dir":"forward|back|left|right","seconds":N opcional (sin seconds = hasta que diga alto)}
@@ -23,6 +25,9 @@ Acciones permitidas (máximo 4, en orden):
 - {"do":"look","dir":"up|down|center"}
 - {"do":"goto"} caminar solo hacia el objetivo marcado
 - {"do":"pause"} {"do":"resume"} {"do":"help"} {"do":"exitVR"}
+Español coloquial: "para la izquierda" / "pa' la derecha" / "para adelante" = moverse hacia ese lado (NO es detenerse);
+"para" o "párate" solos = stop; "pa'lante" = forward; "derecho" o "recto" = forward; "dale" = continuar/avanzar; "tírale", "dispárales", "dale plomo" = fire;
+"izquierda" o "derecha" sin verbo = move de lado 1.6 s; "gira/voltea/dobla a la izquierda" = turn 90 (o los grados que diga).
 Interpreta la intención táctica: "cúbrete" = run + move back; "flanquea por la derecha" = move right 2 s y luego forward;
 "acaba con él" = fire 3; "huye" = run + move back. Si la orden no tiene relación con el juego, devuelve "actions": [] y explícalo en reply.`;
 
@@ -48,6 +53,8 @@ export async function POST(request) {
     canInteract: typeof ctx.canInteract === 'string' ? ctx.canInteract.slice(0, 80) : null,
     boss: typeof ctx.boss === 'string' ? ctx.boss.slice(0, 40) : null,
     health: Number(ctx.health) || null,
+    alternativas: Array.isArray(ctx.alternatives) ? ctx.alternatives.filter((a) => typeof a === 'string').slice(0, 4).map((a) => a.slice(0, 120)) : [],
+    interpretacionLocal: Array.isArray(ctx.localGuess) ? ctx.localGuess.slice(0, 4) : [],
   });
   try {
     const out = await chatJSON({ system: SYSTEM, user: `Contexto: ${context}\nOrden del jugador: ${JSON.stringify(text)}`, maxTokens: 220 });

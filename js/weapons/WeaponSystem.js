@@ -188,6 +188,13 @@ export class WeaponSystem {
   // ================================================================ punto de mira
   #updateAimPoint() {
     const { game } = this;
+    // apuntado automático (disparo por voz o gestos): la mira va al blanco elegido
+    const forced = game.autoAim?.aimPoint();
+    if (forced) {
+      this.aimPoint.copy(forced);
+      this.aimTarget = game.autoAim.target;
+      return;
+    }
     // cámara en pantalla normal; control derecho dentro del visor VR
     const origin = _aimOrigin;
     const dir = _a;
@@ -326,12 +333,20 @@ export class WeaponSystem {
     this.cooldown = 1 / d.fireRate;
     this.lastFire = game.time;
     this.stats.shots += 1;
+    // con apuntado automático (voz o gestos) se dispara con la precisión de «apuntando» y sin retroceso acumulado
+    const auto = !!game.autoAim?.aimPoint();
     const muzzle = player.muzzlePosition(_b).clone();
+    // con apuntado automático la bala sale del pecho, desde donde se comprobó el tiro limpio
+    // (mientras NOVA-7 aún se voltea, el cañón puede quedar detrás de una roca o del terreno)
+    if (auto) {
+      const chest = player.chestPosition(new THREE.Vector3());
+      muzzle.copy(chest).addScaledVector(_a.copy(this.aimPoint).sub(chest).normalize(), 0.45);
+    }
     const base = _c.copy(this.aimPoint).sub(muzzle).normalize();
     // si algo tapa el cañón (pared muy cerca), disparar desde el pecho
-    const block = game.physics.raycast(player.chestPosition(new THREE.Vector3()), _a.copy(muzzle).sub(player.chestPosition(new THREE.Vector3())).normalize(), 1.2, { groups: COLLISION.cameraQuery });
+    const block = auto ? null : game.physics.raycast(player.chestPosition(new THREE.Vector3()), _a.copy(muzzle).sub(player.chestPosition(new THREE.Vector3())).normalize(), 1.2, { groups: COLLISION.cameraQuery });
     if (block) muzzle.copy(block.point).addScaledVector(base, -0.1);
-    const spread = (this.aiming ? d.aimSpread : d.spread) + this.bloom;
+    const spread = auto ? d.aimSpread : (this.aiming ? d.aimSpread : d.spread) + this.bloom;
     let hitEnemy = false;
     let head = false;
     for (let i = 0; i < d.pellets; i++) {

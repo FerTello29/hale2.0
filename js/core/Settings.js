@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   music: 0.55,
   voice: false,
   gestures: false,
+  autoAim: true,
   aiDirector: true,
   aiVoice: true,
   vrView: 'third',

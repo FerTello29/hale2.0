@@ -18,12 +18,12 @@
   <!-- Tipografías locales (OFL) -->
   <link rel="preload" href="assets/fonts/chakra-petch-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="assets/fonts/saira-stencil-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="css/fonts.css?v=5" />
+  <link rel="stylesheet" href="css/fonts.css?v=6" />
 
   <!-- Estilos del juego -->
-  <link rel="stylesheet" href="css/main.css?v=5" />
-  <link rel="stylesheet" href="css/hud.css?v=5" />
-  <link rel="stylesheet" href="css/screens.css?v=5" />
+  <link rel="stylesheet" href="css/main.css?v=6" />
+  <link rel="stylesheet" href="css/hud.css?v=6" />
+  <link rel="stylesheet" href="css/screens.css?v=6" />
 
   <!-- Import map: Three.js y Rapier desde CDN (sin herramientas de compilación) -->
   <script type="importmap">
@@ -456,6 +456,10 @@
             <label class="form-check-label" for="set-gestures">Gestos con la mano (usa la cámara, tecla C)</label>
           </div>
           <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="set-autoAim" data-setting="autoAim" />
+            <label class="form-check-label" for="set-autoAim">Apuntado automático al disparar con voz o gestos</label>
+          </div>
+          <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" role="switch" id="set-aiVoice" data-setting="aiVoice" />
             <label class="form-check-label" for="set-aiVoice">La IA interpreta frases que no reconoce el juego</label>
           </div>
@@ -526,6 +530,6 @@
   <noscript><div class="noscript">Este juego necesita JavaScript habilitado.</div></noscript>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="js/main.js?v=5"></script>
+  <script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

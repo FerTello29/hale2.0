@@ -150,10 +150,12 @@ Pulsa <kbd>V</kbd> (o el botón 🎙 del HUD, o activa *Comandos de voz* en Ajus
 
 | Di… | NOVA-7… |
 |---|---|
-| «avanza», «atrás», «izquierda», «derecha» (+ «3 segundos») | se mueve (hasta que digas «alto», o el tiempo indicado) |
+| «avanza», «adelante», «pa'lante», «sigue derecho», «atrás» (+ «3 segundos») | avanza o retrocede (hasta que digas «alto», o el tiempo indicado) |
+| «izquierda», «a la derecha», «para la izquierda», «un poco a la derecha» | paso lateral hacia ese lado |
+| «gira / voltea / dobla a la izquierda» (+ «45 grados», «un poco») | gira 90° (o lo indicado) |
 | «corre» / «camina» | corre o camina |
 | «alto», «detente», «para» | se detiene y deja de disparar |
-| «dispara», «ráfaga», «fuego sin parar», «alto el fuego» | dispara (respeta el modo del arma: automático, semiautomático o carga del orbe) |
+| «dispara», «dispárales», «tírale», «ráfaga», «fuego sin parar», «alto el fuego» | dispara con **apuntado automático** al enemigo visible más conveniente |
 | «salta», «recarga», «golpea», «pulso» | acciones |
 | «granada», «granada de singularidad» | apunta y lanza una granada |
 | «rifle», «dispersor», «lanzaorbes», «riel», «arma 2», «siguiente arma» | cambia de arma |
@@ -162,7 +164,9 @@ Pulsa <kbd>V</kbd> (o el botón 🎙 del HUD, o activa *Comandos de voz* en Ajus
 | «usa», «activa la baliza», «aborda» | interactúa (como <kbd>E</kbd>) |
 | «pausa», «continúa», «ayuda», «sal de realidad virtual» | control de la partida |
 
-Varias órdenes se encadenan: «dispara y salta», «gira a la derecha y avanza 2 segundos». Las órdenes cortas («alto», «salta») se ejecutan con el resultado provisional del reconocedor, sin esperar a que termines de hablar. Si una frase no coincide con ninguna orden conocida («cúbrete detrás de algo», «flanquea por la derecha»), la **IA** la convierte en acciones del juego (ver más abajo).
+El intérprete entiende el **español de México** («para la izquierda» es moverse, no detenerse; «pa'lante», «córrele», «brínquele»), conjugaciones y pronombres pegados («dispárales», «voltéate») y **corrige errores del reconocedor** de voz («isquierda» → izquierda) comparando las palabras con las órdenes conocidas. Además, de las alternativas que propone el reconocedor elige la que mejor se entiende.
+
+Varias órdenes se encadenan: «dispara y salta», «gira a la derecha y avanza 2 segundos». Las órdenes cortas («alto», «salta») se ejecutan con el resultado provisional del reconocedor, sin esperar a que termines de hablar. Si el intérprete entiende menos del 60 % de la frase («cúbrete detrás de algo», «flanquea por la derecha»), la **IA** la interpreta usando también las alternativas del reconocedor y lo que entendió el intérprete local (ver más abajo).
 
 Código: `js/ai/VoiceControl.js` (micrófono y modos) y `js/ai/VoiceCommands.js` (intérprete y ejecutor).
 
@@ -172,9 +176,9 @@ Pulsa <kbd>C</kbd> (o el botón ✋ del HUD, *Activar / apagar la cámara* en el
 
 | Gesto | Acción |
 |---|---|
-| ✋ Palma abierta | Avanzar. Mueve la mano hacia un lado de la imagen para **girar** |
-| ✊ Puño | Detenerse (también detiene lo que ordenaste por voz) |
-| ☝️ Índice arriba | Disparar mientras lo mantengas (carga y suelta el orbe) |
+| ✋ Palma abierta | Avanzar **recto**. Inclínala como un **volante** para girar mientras avanzas |
+| ✊ Puño | Detenerse (también detiene lo que ordenaste por voz). Inclínalo para **girar sin avanzar** |
+| ☝️ Índice arriba | Disparar mientras lo mantengas, con **apuntado automático** |
 | ✌️ Amor y paz | Saltar |
 | 👍 Pulgar arriba | Recargar |
 | 👎 Pulgar abajo | Retroceder |
@@ -185,6 +189,10 @@ Pulsa <kbd>C</kbd> (o el botón ✋ del HUD, *Activar / apagar la cámara* en el
 | 👌 OK (pulgar e índice juntos) | Granada: mantén para apuntar y suelta para lanzar |
 
 Los primeros siete gestos los reconoce el modelo de MediaPipe. Los cuatro últimos son **gestos propios**: el juego los calcula con los 21 puntos de la mano (`classifyHand`), según qué dedos están estirados y hacia dónde apunta el índice.
+
+**Girar la cámara con la mano:** inclina la palma (o el puño) hacia un lado, como un volante. Hasta unos 18° no gira (la inclinación natural de la mano), y gira más rápido cuanto más la inclinas. El panel de la cámara muestra el volante con una aguja. La posición de la mano en la imagen ya no importa: antes, con la mano a un lado, NOVA-7 daba vueltas en círculo.
+
+**Apuntado automático** (voz y gestos): al disparar con «dispara» o ☝️ se elige el mejor blanco con tiro limpio (sin terreno ni objetos de por medio), prefiriendo el más cercano y el que está al frente. Si el jefe tiene escudo, apunta a los nodos o anclas que lo alimentan, y derriba los orbes del Eco que se acercan. La cámara y NOVA-7 giran hacia el blanco y se dispara con la precisión de «apuntando». Se desactiva en *Ajustes → Apuntado automático*. En el visor VR solo corrige la bala, sin girar tu vista.
 
 Puedes usar **las dos manos** a la vez (✋ con una para avanzar y ☝️ con la otra para disparar) y combinar los gestos con el teclado o la voz. Para que funcione bien, coloca la mano a unos 30–60 cm de la cámara y con buena luz. Dentro de los visores VR se desactiva, porque la cámara no ve las manos. La primera vez se descargan unos 18 MB (modelo y WebAssembly), que el navegador guarda en caché.
 
@@ -334,7 +342,7 @@ hale2.0/                           (nombre del repositorio)
 │   ├── enemies/     Enemy.js · Acechador.js · Espectro.js · Centinela.js · Bastion.js
 │   ├── bosses/      Matriarca.js · Coloso.js · Eco.js
 │   ├── weapons/     WeaponSystem.js
-│   ├── gameplay/    Damage.js · Spawner.js · EnemyDirector.js · Radio.js · Story.js
+│   ├── gameplay/    Damage.js · Spawner.js · EnemyDirector.js · AutoAim.js · Radio.js · Story.js
 │   ├── camera/      ThirdPersonCamera.js
 │   ├── fx/          Effects.js · AudioManager.js (efectos + MusicDirector)
 │   └── ui/          HUD.js · Minimap.js · Screens.js · TouchControls.js
@@ -493,7 +501,7 @@ Todas las rutas son **relativas**, así que el juego funciona en la raíz de Ver
 | Victoria y derrota | Por operación y de campaña; derrota con causa explicada | `levels/LevelBase.js`, `core/Game.js` |
 | Pantallas de inicio, victoria, derrota y reinicio | Menú con campaña, sesión informativa, pausa, operación completada, victoria final con epílogo, derrota con reintento | `ui/Screens.js`, `index.html` |
 | HUD moderno, controles visibles, responsivo con Bootstrap 5 | HUD completo, minimapa, ayuda, modales, diseño táctil | `index.html`, `css/*`, `ui/*` |
-| Código organizado y POO | 54 módulos ES con clases y herencia | `js/` |
+| Código organizado y POO | 55 módulos ES con clases y herencia | `js/` |
 | Repositorio, commits y publicación | Historial por funcionalidad, GitHub Pages y Vercel | `.git/`, `vercel.json`, `PUBLICAR.md` |
 | Control por voz | Web Speech API + intérprete en español + IA para frases libres | `ai/VoiceControl.js`, `ai/VoiceCommands.js` |
 | Control con gestos de la mano | Cámara + MediaPipe en el dispositivo, vista previa con esqueleto y guía ilustrada | `ai/GestureControl.js` |
@@ -548,6 +556,7 @@ Se probó en **Chromium sin interfaz** (render por software SwiftShader) sirvien
 
 - **v1.0 — «Veta Airosa»:** primera entrega (cañón minero, un nivel, drones y torres). Sus commits siguen en el historial.
 - **v2.0 — «Eco de Orión»:** nuevo universo original, campaña de 3 operaciones con jefes, 4 enemigos, 4 armas con recarga, 2 granadas, radio y música adaptativa. Commits por funcionalidad (`git log --oneline`).
+- **v2.4:** voz para el español de México («para la izquierda», «pa'lante», «dispárales») con corrección de errores del reconocedor y más ayuda de la IA; volante con la mano para girar (✋ avanza recto); apuntado automático al disparar con voz o gestos.
 - **v2.3:** gestos para moverse a la izquierda y derecha, correr y lanzar granadas, y botón de contacto (LinkedIn).
 - **v2.2:** control con gestos de la mano frente a la cámara (MediaPipe), con vista previa en espejo, esqueleto de la mano y guía ilustrada.
 - **v2.1:** control por voz, realidad virtual (Meta Quest con WebXR y VR Box), director táctico e intérprete de órdenes con OpenAI a través de Vercel (API key oculta), gamepad, dificultad más baja y temporizadores en tiempo de juego (corrige proyectiles y efectos que podían aparecer en el nivel siguiente al reiniciar o salir al menú).
